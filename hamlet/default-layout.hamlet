@@ -1,9 +1,38 @@
 !!!
-<html
-    <head
-        <title>#{pageTitle pc}
+<html>
+    <head>
+        <title> #{pageTitle pc}
+        <script!src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js">
         ^{pageHead pc}
-    <body
-        $maybe msg <- mmsg
-            <div #message>#{msg}
-        ^{pageBody pc}
+    <body>
+      <div#wrap>
+        <div#header>
+          <div#header-inner>
+            <div>
+              <a#logo!href=@HomeR@!title="Take me home!">
+            <div#top-nav>
+              <ul.top-nav>
+                $if isAboutR
+                  <li>
+                    <a!href=@ListEffectsR@> Effects
+                $else
+                  <li.selected>
+                    <a!href=@ListEffectsR@> Effects
+                $if isAboutR
+                  <li.selected>
+                    <a!href=@AboutR@> About
+                $else
+                  <li>
+                    <a!href=@AboutR@> About
+
+        <div#wrap-inner>
+          <div#content>
+            $maybe msg <- mmsg
+                <span#message> #{msg}
+            ^{pageBody pc}
+            <div!style="clear: both; height: 1px; line-height: 1px;">
+      <div#footer>
+        <div#footer-inner>
+          <ul>
+            <li>
+              <a!href="" &copy;>

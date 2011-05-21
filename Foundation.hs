@@ -83,6 +83,8 @@ instance Yesod Foundation where
         pc <- widgetToPageContent $ do
             widget
             addCassius $(Settings.cassiusFile "default-layout")
+            addLucius $(Settings.luciusFile "master")
+
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from
@@ -205,3 +207,5 @@ instance YesodAuthEmail Foundation where
                 , emailCredsVerkey = emailVerkey e
                 }
     getEmail = runDB . fmap (fmap emailEmail) . get
+
+isAboutR = False

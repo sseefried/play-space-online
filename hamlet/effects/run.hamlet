@@ -1,0 +1,20 @@
+
+%ul.breadcrumb
+  %li
+    %a!href=@ListEffectsR@ Return to list &raquo;
+%h1 Run Effect / $
+  %strong $name$
+  
+
+%div.add-effect
+  %h2 Upload a JPEG image
+  %form!method=POST!action=@ResultEffectR name@!enctype=multipart/form-data
+    %input!type=file!name=file
+    %button.get-funky GET FUNKY!
+
+
+
+%div.controls
+  %a!href=@ShowEffectR name@ Show
+  \ | $
+  %a!href=@EditEffectR name@ Edit

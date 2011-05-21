@@ -1,0 +1,23 @@
+%ul.breadcrumb
+  %li 
+    %a!href=@ListEffectsR@ Return to list &raquo;
+%h1 Result / $
+  %strong $effectName effect$
+%br
+%div.controls
+   %a!href=@RunEffectR (effectName effect)@ Run again!
+
+%ul.large-effects
+  %li.effect
+    %div
+      %img!src=@InputImageR.imageInHash@
+      %h2 Original
+  %li.effect
+    %div
+      %img!src=@((ResultImageR name) imageInHash)@
+      %h2 $effectName effect$
+
+%div!style="clear:both;height:1px;line-height:1px;"
+%br
+%div.controls
+   %a!href=@RunEffectR (effectName effect)@ Run again!

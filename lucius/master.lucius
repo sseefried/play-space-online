@@ -1,0 +1,340 @@
+/* -*-css-*- */
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+
+	Everyone likes an even playing field.
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure,
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+body {
+	line-height: 1;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+/** custom buttons **/
+button, input.custom { background: none; border: 0; color: #4083a9;}
+
+/** LI Reset **/
+
+ul, li, ul li { margin: 0; padding: 0;}
+
+
+ /* master styles
+--------------------------------------------- */
+
+body {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #333;
+	font-size: 62.5%;
+	background: #fff;
+	}
+
+
+	/** fonts **/
+
+	h1 {
+  	font-size: 1.8em;
+  	line-height: 1.5em;
+  	font-weight: bold;
+  	}
+  h1 strong {color: #666;}
+
+  h1.title {
+  	font-weight: normal;
+  	line-height: 1.3;
+  	}
+  h1.compact {
+  	font-size: 1.36em;
+  	font-weight: normal;
+  	line-height: 1.3;
+  	color: #777;
+  	}
+  h1.compact strong {
+  	color: #333;
+  	}
+
+
+    h2 {
+    	margin: 12px 0 15px 0;
+    	font-size: 1.4em;
+    	line-height: 1;
+    	color: #333;
+    	font-weight: bold;
+    	}
+
+/* links */
+
+a:link, a:visited, input {
+	color: #4083a9;
+	outline: none;
+	text-decoration: none;
+	}
+
+a:hover {
+	text-decoration: none;
+	color: #205f82;
+	}
+
+input { font-size: 12px; margin: 0; padding: 0;}
+
+
+/** Page structure **/
+
+#wrap {
+	background: #f0f0f0;
+	}
+#wrap-inner {
+	padding: 25px 0 30px 0;
+	}
+#content {
+	position: relative;
+	width: 940px;
+	margin: 0 auto;
+	padding: 0;
+	font-size: 1.2em;
+	}
+
+/** header **/
+
+#header {
+  background: url(/static/gfx/funky_top.jpg) top left repeat-x;
+ height: 60px; position: relative;
+}
+#header-inner, #footer-inner { width: 980px; margin: 0 auto; position: relative;}
+#logo { width: 200px; height: 62px; background: url(/static/gfx/logo.png) center; display: block;}
+
+/** footer **/
+
+#footer { border-top: 2px solid #ccc; padding-top: 20px;}
+#footer-inner { height: 200px;}
+
+.breadcrumb { float: right; font-size: 14px; margin-top: 8px;}
+/** Modules **/
+
+/** top nav **/
+#top-nav { position: absolute; top: 20px; left: 300px;}
+#top-nav a { font-size: 12px;}
+ul.top-nav li {
+  line-height: 22px;
+  height:22px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  float: left;
+}
+
+ul.top-nav li a { color: #ccc;line-height:22px; margin-right: 22px; padding: 5px 14px 5px 1px;}
+ul.top-nav li.selected {
+  background: url(/static/gfx/menu_button_left.png) left no-repeat;
+  padding-left:10px;
+}
+
+ul.top-nav li.selected a {
+  color: #fff;
+  font-weight: bold;
+  background: url(/static/gfx/menu_button_right.png) center right no-repeat;
+}
+
+ul.top-nav li a:hover { color: #fff;font-weight: bold;}
+
+/** sub nav **/
+ul.sub-nav { border-bottom: 2px solid #dadada; height: 20px;}
+ul.sub-nav li { float: left; line-height: 20px; margin-right: 22px;}
+ul.sub-nav li a { text-transform: uppercase; font-weight: bold;}
+ul.sub-nav li.selected { border-bottom: 2px solid #666; }
+
+/** Effects **/
+ul.effects { clear: both;  overflow: auto;}
+ul.effects li.effect {
+  float: left;
+  width: 430px;
+  padding: 8px;
+  margin: 10px;
+  background: url(/static/gfx/shadow3.png) bottom right no-repeat;
+}
+
+ul.effects h3 { font-size: 20px; font-weight: bold;}
+ul.effects h3 a { color: #333;}
+ul.effects h3 a:hover { color: #666;}
+ul li.effect div { padding: 18px; background: #fff; border: 1px solid #e5e5e5;}
+ul li.effect img { float: left; margin-right: 20px; margin-bottom: 18px;}
+
+/** Large effects */
+ul.large-effects li.effect {
+  float: left;
+  padding: 8px;
+  margin: 10px;
+  background: url(/static/gfx/shadow3.png) bottom right no-repeat;
+}
+
+/** Show / Edit Effect **/
+ul.effect-show { clear: both;  overflow: auto;}
+ul.effect-show li.effect {
+  float: left;
+  width: 430px;
+  padding: 8px;
+  margin: 10px;
+  background: url(/static/gfx/shadow3.png) bottom right no-repeat;
+}
+
+ul.effect-show h3 { font-size: 20px; font-weight: bold;}
+ul.effect-show h3 a { color: #333;}
+ul.effect-show h3 a:hover { color: #666;}
+ul.effect-show div { padding: 18px; background: #fff; border: 1px solid #e5e5e5;}
+ul.effect-show img { clear: both;}
+
+/** controls **/
+div.controls * { font-size: 16px !important; cursor: pointer; margin: 0 10px;}
+
+
+/** Effects Control Panel **/
+ul li .controls, ul li .controls a, ul li .controls input {
+  color: #ccc;
+  margin: 0 2px;
+  padding: 2px;}
+ul li .controls {
+  display: block;
+  background: url(/static/gfx/cogoff.jpg) left no-repeat;
+  padding-left: 22px;
+  height: 19px;
+  line-height: 21px;
+  clear: both;
+}
+
+ul li .controls { color: #efefef;}
+ul li .controls:hover, ul li .controls:hover {
+  color: #777;
+  background: url(/static/gfx/cogon.jpg) left no-repeat;
+}
+ul li .controls:hover a, ul li .controls:hover input { color: #4083a9;  }
+ul li .controls a:hover, ul li .controls input:hover {
+  cursor: pointer;
+  background: #ccc;
+  color: #fff;
+}
+ul li .controls { clear: #4083a9;}
+
+/** Add Effect **/
+.add-effect label, .edit-effect label {  margin: 12px 0 15px 0;
+		     font-size: 1.4em;
+		     line-height: 1;
+		     color: #333;
+		     font-weight: bold;}
+.add-effect { clear: both; margin-top: 20px; border-top: 2px solid #dadada;line-height: 35px;}
+.add-effect div.required, .add-effect div.special-button-container { display: inline;}
+.add-effect input { font-size: 1.6em; padding: 2px; color: #666; margin-right: 10px;}
+.add-effect input[type="text"] { width: 300px;}
+.add-effect button.add {
+  padding-left: 43px;
+  background: url(/static/gfx/add_button.jpg) top left no-repeat;
+  line-height: 38px;
+  height: 40px;
+  padding-right: 60px;
+  font-size: 1.2em;
+  color: #333;
+}
+.add-effect button.add:hover {
+  padding-left: 43px;
+  background: url(/static/gfx/add_button2.jpg) top left no-repeat;
+  padding-right: 60px;
+  font-size: 1.2em;
+  color: #777;
+  cursor: pointer;
+}
+
+.add-effect button.get-funky {
+  padding-left: 33px;
+  background: url(/static/gfx/getfunky_button.jpg) top left no-repeat;
+  line-height: 38px;
+  height: 40px;
+  padding-right: 60px;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.add-effect button.get-funky:hover {
+  background: url(/static/gfx/getfunky_button_down.jpg) top left no-repeat;
+  color: #000;
+  cursor: pointer;
+}
+
+/** Code Container **/
+.code-container { font-family: courier; line-height: 16px; font-size: 14px;}
+.code-container {
+  border: 2px dashed #ccc;
+  padding: 15px; margin: 15px; background: #fff; overflow: auto;}
+
+/* Edit form */
+.edit-effect textarea {
+  width: 900px;
+  height: 400px;
+  font-family: courier;
+  line-height: 16px;
+  font-size: 14px;
+  border: 2px dashed #ccc;
+  padding: 15px;
+  margin: 15px;
+  background: #fff;
+  overflow: auto;
+}
+
+.info {
+  border: 2px dashed #f33;
+  background: #FDD;
+  padding: 10px;
+  color: #C00;
+  margin: 10px;
+  font-family: courier;
+}
+
+.edit-effect button.get-funky {
+  padding-left: 24px;
+  background: url(/static/gfx/getfunky_button.jpg) top left no-repeat;
+  line-height: 38px; height: 40px; padding-right: 60px; font-size: 1.2em; color: #333;
+}
+
+.edit-effect button.get-funky:hover {
+  background: url(/static/gfx/getfunky_button_down.jpg) top left no-repeat;color: #000;
+  cursor: pointer;
+}
+
+.errors { color: #333; font-weight: bold; }

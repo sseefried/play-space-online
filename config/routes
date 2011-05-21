@@ -1,7 +1,16 @@
 /static StaticR Static getStatic
 /auth   AuthR   Auth   getAuth
 
-/favicon.ico FaviconR GET
-/robots.txt RobotsR GET
+/favicon.ico                    FaviconR             GET
+/robots.txt                     RobotsR              GET
 
-/ RootR GET
+/                               RootR                GET
+/about                          AboutR               GET
+
+/effects                        ListEffectsR         GET
+/effects/create                 CreateEffectR        POST PUT
+/effects/#String/#String/show   ShowEffectR          GET
+/effects/#String/edit           EditEffectR          GET
+/effects/#String/update         UpdateEffectR        POST PUT
+/effects/#String/delete         DeleteEffectR        POST DELETE
+/effects/#String/run            RunEffectR           GET

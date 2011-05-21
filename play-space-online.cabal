@@ -32,6 +32,8 @@ library
                      Settings
                      StaticFiles
                      Handler.Root
+                     Handler.Effect
+                     Handler.About
 
 executable         play-space-online
     if flag(devel)

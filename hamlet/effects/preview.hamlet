@@ -1,0 +1,10 @@
+%ul.effect-show
+  %li.effect
+    %div
+      %img!width=384!height=384!src=@OriginalImageR Normal@
+      %h3 Original
+  %li.effect
+    %div
+      %img#preview!src=@SpinnerImageR@
+
+      %h3 $effectName effect$

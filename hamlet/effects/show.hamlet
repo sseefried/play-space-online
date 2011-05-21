@@ -1,0 +1,17 @@
+%ul.breadcrumb 
+  %li 
+    %a!href=@ListEffectsR@ Return to list &raquo;
+
+%h1 Effect / $
+  %strong $effectName effect$
+
+^preview^
+%h2 Code
+%pre.code-container $effectCode effect$
+%form!action=@DeleteEffectR (effectName effect)@!method=POST
+  %div.controls
+    %a!href=@EditEffectR (effectName effect)@ Edit
+    \ | $
+    %a!href=@RunEffectR (effectName effect)@ Run
+    \ | $
+    %input.custom!type=submit!value=Delete!onclick="return confirm('Are you sure?');"
