@@ -72,7 +72,7 @@ createEffect = do
                             (unpack name)
               defaultLayout $ addWidget $(widgetFile "effects/new")
 
-getShowEffectR :: UserId -> String -> Handler RepHtml
+getShowEffectR :: UserId -> Text -> Handler RepHtml
 getShowEffectR = error "not implemented"
 
 showEffect :: Effect -> Handler RepHtml
@@ -81,12 +81,12 @@ showEffect effect = defaultLayout $ addWidget $(widgetFile "effects/show")
 defaultEffectCode :: Text
 defaultEffectCode = "this code is broken"
 
-getEditEffectR :: String -> Handler RepHtml
+getEditEffectR :: Text -> Handler RepHtml
 getEditEffectR name = do
   mbUserId <- maybeUserId
   case mbUserId of
     Just userId -> do
-      mbResult <- runDB (getBy $ UniqueEffect userId (pack name))
+      mbResult <- runDB (getBy $ UniqueEffect userId name)
       case mbResult of
         Just (key, effect) -> do
           -- this is the first time we show the form so we don't care about the result type.
@@ -97,39 +97,39 @@ getEditEffectR name = do
         Nothing            -> effectNotFound name
     Nothing -> error "FIXME"
 
-postUpdateEffectR :: String -> Handler RepHtml
+postUpdateEffectR :: Text -> Handler RepHtml
 postUpdateEffectR = error "not implemented"
 
-putUpdateEffectR :: String -> Handler RepHtml
+putUpdateEffectR :: Text -> Handler RepHtml
 putUpdateEffectR = error "not implemented"
 
 
-deleteDeleteEffectR :: String -> Handler RepHtml
+deleteDeleteEffectR :: Text -> Handler RepHtml
 deleteDeleteEffectR = deleteEffect
 
-postDeleteEffectR :: String -> Handler RepHtml
+postDeleteEffectR :: Text -> Handler RepHtml
 postDeleteEffectR = deleteEffect
 
-deleteEffect :: String -> Handler RepHtml
+deleteEffect :: Text -> Handler RepHtml
 deleteEffect name = do
   mbUserId <- maybeUserId
   case mbUserId of
     Just userId -> do
-      runDB $ deleteBy $ UniqueEffect userId (pack name)
+      runDB $ deleteBy $ UniqueEffect userId name
       redirect RedirectSeeOther ListEffectsR
     Nothing -> error "fixme"
 
-getRunEffectR :: String -> Handler RepHtml
+getRunEffectR :: Text -> Handler RepHtml
 getRunEffectR = error "not implemented"
 
-postResultEffectR :: String -> Handler RepHtml
+postResultEffectR :: Text -> Handler RepHtml
 postResultEffectR = error "not implemented"
 
 
 -------
 
 
-effectNotFound :: String -> Handler RepHtml
+effectNotFound :: Text -> Handler RepHtml
 effectNotFound name = defaultLayout $ addWidget $(widgetFile "effects/not-found")
 
 editFormlet :: Effect -> Form s m EditParams

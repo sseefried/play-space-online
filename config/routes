@@ -10,8 +10,8 @@
 /effects                        ListEffectsR         GET
 /effects/create                 CreateEffectR        POST PUT
 -- Can use data types defined in config/models here!
-/effects/#UserId/#String/show   ShowEffectR          GET
-/effects/#String/edit           EditEffectR          GET
-/effects/#String/update         UpdateEffectR        POST PUT
-/effects/#String/delete         DeleteEffectR        POST DELETE
-/effects/#String/run            RunEffectR           GET
+/effects/#UserId/#Text/show   ShowEffectR          GET
+/effects/#Text/edit           EditEffectR          GET
+/effects/#Text/update         UpdateEffectR        POST PUT
+/effects/#Text/delete         DeleteEffectR        POST DELETE
+/effects/#Text/run            RunEffectR           GET

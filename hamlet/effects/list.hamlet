@@ -4,15 +4,15 @@
   $forall effect <- effects
     <li.effect>
       <div>
-        <form method=POST action=@{DeleteEffectR (unpack $ effectName effect)}>
-          <a href=@{RunEffectR (unpack $ effectName effect)}>
+        <form method=POST action=@{DeleteEffectR (effectName effect)}>
+          <a href=@{RunEffectR (effectName effect)}>
           <h3> #{effectName effect}
           <span.controls>
-            <a href=@{ShowEffectR (effectUser effect) (unpack $ effectName effect)}> Show
+            <a href=@{ShowEffectR (effectUser effect) (effectName effect)}> Show
             \ | #
-            <a href=@{EditEffectR (unpack $ effectName effect)}> Edit
+            <a href=@{EditEffectR (effectName effect)}> Edit
             \ | #
-            <a href=@{RunEffectR (unpack $ effectName effect)}> Run
+            <a href=@{RunEffectR (effectName effect)}> Run
             \ | #
             <input.custom type=submit value=Delete onclick="return confirm('Are you sure?');">
 ^{newForm}

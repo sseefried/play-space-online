@@ -8,10 +8,10 @@
 
 <h2> Code
 <pre.code-container> #{effectCode effect}
-<form action=@{DeleteEffectR (unpack $ effectName effect)} method=POST>
+<form action=@{DeleteEffectR $ effectName effect} method=POST>
   <div.controls>
-    <a href=@{EditEffectR (unpack $ effectName effect)}> Edit
+    <a href=@{EditEffectR $ effectName effect}> Edit
     \ | #
-    <a href=@{RunEffectR (unpack $ effectName effect)}> Run
+    <a href=@{RunEffectR $ effectName effect}> Run
     \ | #
     <input.custom type=submit value=Delete onclick="return confirm('Are you sure?');">
