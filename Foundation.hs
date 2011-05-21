@@ -13,6 +13,7 @@ module Foundation
     , module Model
     , StaticRoute (..)
     , AuthRoute (..)
+    , maybeUserId
     ) where
 
 import Yesod
@@ -20,6 +21,8 @@ import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
 import Yesod.Helpers.Auth.OpenId
 import Yesod.Helpers.Auth.Email
+import Yesod.Helpers.Auth.Dummy
+import Yesod.Helpers.Auth.HashDB hiding (UserId)
 import qualified Settings
 import System.Directory
 import qualified Data.ByteString.Lazy as L
@@ -138,6 +141,8 @@ instance YesodAuth Foundation where
 
     authPlugins = [ authOpenId
                   , authEmail
+                  , authDummy
+                  , authHashDB
                   ]
 
 instance YesodAuthEmail Foundation where
@@ -207,5 +212,10 @@ instance YesodAuthEmail Foundation where
                 , emailCredsVerkey = emailVerkey e
                 }
     getEmail = runDB . fmap (fmap emailEmail) . get
+
+maybeUserId :: Handler (Maybe UserId)
+maybeUserId = do
+  mu <- maybeAuth
+  return (mu >>= \p -> return $ fst p)
 
 isAboutR = False

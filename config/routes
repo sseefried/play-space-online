@@ -9,7 +9,8 @@
 
 /effects                        ListEffectsR         GET
 /effects/create                 CreateEffectR        POST PUT
-/effects/#String/#String/show   ShowEffectR          GET
+-- Can use data types defined in config/models here!
+/effects/#UserId/#String/show   ShowEffectR          GET
 /effects/#String/edit           EditEffectR          GET
 /effects/#String/update         UpdateEffectR        POST PUT
 /effects/#String/delete         DeleteEffectR        POST DELETE

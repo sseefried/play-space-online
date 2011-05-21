@@ -10,6 +10,7 @@ Email
 
 Effect
     name Text Eq Asc -- an effect name. Unique
+    user UserId Eq Asc -- the user who created it
     code Text Update -- the associated PlaySpace code
     compiles Bool Eq Update -- true if it compiles
-    UniqueEffect name
+    UniqueEffect user name

@@ -1,9 +1,9 @@
 #{info}
 <div.add-effect>
-  <form!enctype=$encType$!action=@CreateEffectR@!method=POST>
+  <form enctype=#{encType} action=@{CreateEffectR} method=POST>
     #{csrfHtml}
     ^{form}
     <div.special-button-container>
       <button.add> Add
   $if canCancel
-    <a.small!href=@ListEffectsR@> Cancel
+    <a.small!href=@{ListEffectsR}> Cancel
