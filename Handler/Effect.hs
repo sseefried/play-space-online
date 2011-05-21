@@ -3,8 +3,8 @@ module Handler.Effect where
 
 -- libraries
 import Prelude hiding (length)
-import Data.Text hiding (map)
-import qualified Data.Text as Text
+import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Printf
 import Control.Applicative
 
@@ -24,7 +24,7 @@ getListEffectsR = do
   let newForm = $(widgetFile "effects/new")
       canCancel = False
       info = information ""
-  let json = jsonList (map (jsonScalar . unpack . effectName) effects)
+  let json = jsonList (map (jsonScalar . T.unpack . effectName) effects)
   defaultLayoutJson (addWidget $(widgetFile "effects/list")) json
 
 -- A simple form for creating a new effect.
@@ -33,7 +33,7 @@ createFormlet s = fieldsToDivs $ stringField "Add new effect" s
 
 information :: Text -> Html
 information infoStr =
-  if length infoStr > 0 then [$hamlet| div.info $str$|] else ""
+  if T.length infoStr > 0 then [$hamlet| <div.info> #{infoStr}|] else ""
 
 postCreateEffectR :: Handler RepHtml
 postCreateEffectR = createEffect
@@ -43,37 +43,39 @@ putCreateEffectR = createEffect
 
 createEffect :: Handler RepHtml
 createEffect = do
-  maUserId <- maybeUserId
-  case maUserId of
-    Nothing -> error "not authorized"
-    Just userId -> do
-      (res, form, encType, csrfHtml) <- runFormPost $ createFormlet Nothing
-      result <- case res of
-        FormMissing   -> return (Left "Name is blank" :: Either Text Text)
-        FormFailure _ -> return (Left "There were some problems with the form")
-        FormSuccess name -> return (Right name)
-      let canCancel = True
-      case result of
-        Left infoStr -> do
-          let info = information infoStr
+  userId <- requireAuthIdAndDeny
+  (res, form, encType, csrfHtml) <- runFormPost $ createFormlet Nothing
+  result <- case res of
+    FormMissing   -> return (Left "Name is blank" :: Either Text Text)
+    FormFailure _ -> return (Left "There were some problems with the form")
+    FormSuccess name -> return (Right name)
+  let canCancel = True
+  case result of
+    Left infoStr -> do
+      let info = information infoStr
+      defaultLayout $ addWidget $(widgetFile "effects/new")
+    Right name -> do
+      mbGet <- runDB $ getBy (UniqueEffect userId name)
+      case mbGet of
+        Nothing -> do
+          -- FIXME: Will only succeed if someone else hasn't inserted a record in the mean time.
+          -- Very unlikely but still possible.
+          effectKey <- runDB $ insert (Effect name userId defaultEffectCode True)
+          -- FIXME: Very small chance it's been deleted in mean time
+          (Just effect) <- runDB $ get effectKey
+          showEffect effect
+        Just _ -> do
+          let info = information $ T.pack $ printf "An effect with name '%s' already exists!"
+                        (T.unpack name)
           defaultLayout $ addWidget $(widgetFile "effects/new")
-        Right name -> do
-          mbGet <- runDB $ getBy (UniqueEffect userId name)
-          case mbGet of
-            Nothing -> do
-              -- FIXME: Will only succeed if someone else hasn't inserted a record in the mean time.
-              -- Very unlikely but still possible.
-              effectKey <- runDB $ insert (Effect name userId defaultEffectCode True)
-              -- FIXME: Very small chance it's been deleted in mean time
-              (Just effect) <- runDB $ get effectKey
-              showEffect effect
-            Just _ -> do
-              let info = information $ pack $ printf "An effect with name '%s' already exists!"
-                            (unpack name)
-              defaultLayout $ addWidget $(widgetFile "effects/new")
 
 getShowEffectR :: UserId -> Text -> Handler RepHtml
-getShowEffectR = error "not implemented"
+getShowEffectR userId name = do
+  -- get the effect from the database.
+  mbResult <- runDB $ do { getBy $ UniqueEffect userId name }
+  case mbResult of
+    Just (_,effect) -> showEffect effect
+    Nothing         -> effectNotFound name
 
 showEffect :: Effect -> Handler RepHtml
 showEffect effect = defaultLayout $ addWidget $(widgetFile "effects/show")
@@ -83,25 +85,58 @@ defaultEffectCode = "this code is broken"
 
 getEditEffectR :: Text -> Handler RepHtml
 getEditEffectR name = do
-  mbUserId <- maybeUserId
-  case mbUserId of
-    Just userId -> do
-      mbResult <- runDB (getBy $ UniqueEffect userId name)
-      case mbResult of
-        Just (key, effect) -> do
-          -- this is the first time we show the form so we don't care about the result type.
-          (_, form, encType, csrfHtml) <- runFormPost $ editFormlet effect
-          defaultLayout $ do
-            addWidget $(widgetFile "effects/edit")
---            addWidget $(widgetFile "effects/preview")
-        Nothing            -> effectNotFound name
-    Nothing -> error "FIXME"
+  userId <- requireAuthIdAndDeny
+  mbResult <- runDB (getBy $ UniqueEffect userId name)
+  case mbResult of
+    Just (key, effect) -> do
+      -- this is the first time we show the form so we don't care about the result type.
+      (_, form, encType, csrfHtml) <- runFormPost $ editFormlet effect
+      defaultLayout $ do
+        addWidget $(widgetFile "effects/edit")
+--          addWidget $(widgetFile "effects/preview")
+    Nothing            -> effectNotFound name
 
 postUpdateEffectR :: Text -> Handler RepHtml
-postUpdateEffectR = error "not implemented"
+postUpdateEffectR = updateEffect
 
 putUpdateEffectR :: Text -> Handler RepHtml
-putUpdateEffectR = error "not implemented"
+putUpdateEffectR = updateEffect
+
+updateEffect :: Text -> Handler RepHtml
+updateEffect name = do
+  userId <- requireAuthIdAndDeny
+  mbResult <- runDB $ getBy (UniqueEffect userId name)
+  case mbResult of
+     Just (key, effect') -> do
+       (res, form, encType, csrfHtml) <- runFormPost $ editFormlet effect'
+       eResult <- case res of
+         FormMissing   -> return (Left "Form is blank" :: Either Text EditParams)
+         FormFailure _ -> return (Left $ "There were some problems with the form")
+         FormSuccess params -> return (Right params)
+       case eResult of
+         Left info -> do
+           defaultLayout $ do
+             let effect = effect'
+             addWidget $(widgetFile "effects/edit")
+             addHtml $ information info
+         Right params -> do
+           let effect = Effect (editParamsName params) userId
+                               (unTextarea $ editParamsCode params) True
+           runDB $ replace key effect
+           compileRes <- compileEffect effect
+           case compileRes of
+             (Left err) -> do
+               runDB $ replace key (effect {effectCompiles = False})
+               defaultLayout $ do
+                 addWidget $(widgetFile "effects/edit")
+                 addHtml $ information err
+--                 addWidget $(widgetFile "effects/preview")
+             (Right _) -> do
+               runDB $ replace key (effect {effectCompiles = True})
+               defaultLayout $ do
+                 addWidget $(widgetFile "effects/edit")
+--                 addWidget $(widgetFile "effects/preview")
+     Nothing -> error "die die die"-- FIXME: Need to handle this gracefully.
 
 
 deleteDeleteEffectR :: Text -> Handler RepHtml
@@ -112,18 +147,10 @@ postDeleteEffectR = deleteEffect
 
 deleteEffect :: Text -> Handler RepHtml
 deleteEffect name = do
-  mbUserId <- maybeUserId
-  case mbUserId of
-    Just userId -> do
-      runDB $ deleteBy $ UniqueEffect userId name
-      redirect RedirectSeeOther ListEffectsR
-    Nothing -> error "fixme"
+  userId <- requireAuthIdAndDeny
+  runDB $ deleteBy $ UniqueEffect userId name
+  redirect RedirectSeeOther ListEffectsR
 
-getRunEffectR :: Text -> Handler RepHtml
-getRunEffectR = error "not implemented"
-
-postResultEffectR :: Text -> Handler RepHtml
-postResultEffectR = error "not implemented"
 
 
 -------
@@ -144,3 +171,10 @@ editFormlet effect = do
 -- e.g. I want to size the textarea in the form below but can't yet.
 data EditParams = EditParams { editParamsName :: Text
                              , editParamsCode :: Textarea }
+
+
+-- | Compile the effect code. Return either the path to the compiled binary (Right) or
+--   the compiler error (Left).
+--
+compileEffect :: Effect -> Handler (Either Text (Text, FilePath))
+compileEffect _ = return $ Left "Compilation of effects is not yet implemented"

@@ -5,14 +5,14 @@
     <li.effect>
       <div>
         <form method=POST action=@{DeleteEffectR (effectName effect)}>
-          <a href=@{RunEffectR (effectName effect)}>
+          <a href="#">
           <h3> #{effectName effect}
           <span.controls>
             <a href=@{ShowEffectR (effectUser effect) (effectName effect)}> Show
             \ | #
             <a href=@{EditEffectR (effectName effect)}> Edit
             \ | #
-            <a href=@{RunEffectR (effectName effect)}> Run
+            <a href="#"> Run
             \ | #
             <input.custom type=submit value=Delete onclick="return confirm('Are you sure?');">
 ^{newForm}

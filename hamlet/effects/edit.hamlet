@@ -1,10 +1,9 @@
 <h1> Edit effect / #
   <strong> #{effectName effect}
 
-<form.edit-effect enctype=#{encType}
-                  action=@{UpdateEffectR $effectName effect} method=POST>
+<form.edit-effect enctype=#{encType} action=@{UpdateEffectR $ effectName effect} method=POST>
   #{csrfHtml}
   ^{form}
   <div.controls>
     <button.get-funky> Save and Try
-    <a.small!href=@{ShowEffectR userId (effectName effect)}> Done
+    <a.small href=@{ShowEffectR userId (effectName effect)}> Done

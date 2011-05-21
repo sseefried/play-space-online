@@ -8,12 +8,13 @@ module Foundation
     , Widget
     , maybeAuth
     , requireAuth
+    , requireAuthId
+    , requireAuthIdAndDeny
     , module Yesod
     , module Settings
     , module Model
     , StaticRoute (..)
     , AuthRoute (..)
-    , maybeUserId
     ) where
 
 import Yesod
@@ -214,9 +215,7 @@ instance YesodAuthEmail Foundation where
                 }
     getEmail = runDB . fmap (fmap emailEmail) . get
 
-maybeUserId :: Handler (Maybe UserId)
-maybeUserId = do
-  mu <- maybeAuth
-  return (mu >>= \p -> return $ fst p)
+requireAuthIdAndDeny :: Handler UserId
+requireAuthIdAndDeny = maybeAuthId >>= maybe (permissionDenied "You need to be logged in") return
 
 isAboutR = False

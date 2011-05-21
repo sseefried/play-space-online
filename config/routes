@@ -14,4 +14,3 @@
 /effects/#Text/edit           EditEffectR          GET
 /effects/#Text/update         UpdateEffectR        POST PUT
 /effects/#Text/delete         DeleteEffectR        POST DELETE
-/effects/#Text/run            RunEffectR           GET

@@ -12,6 +12,6 @@
   <div.controls>
     <a href=@{EditEffectR $ effectName effect}> Edit
     \ | #
-    <a href=@{RunEffectR $ effectName effect}> Run
+    <a href="#"> Run
     \ | #
     <input.custom type=submit value=Delete onclick="return confirm('Are you sure?');">
