@@ -9,30 +9,39 @@
         <div#header>
           <div#header-inner>
             <div>
-              <a#logo!href=@HomeR@!title="Take me home!">
+              <h1.logo> PlaySpace Online
             <div#top-nav>
               <ul.top-nav>
                 $if isAboutR
                   <li>
-                    <a!href=@ListEffectsR@> Effects
+                    <a href=@{ListEffectsR}> Effects
                 $else
                   <li.selected>
-                    <a!href=@ListEffectsR@> Effects
+                    <a href=@{ListEffectsR}> Effects
                 $if isAboutR
                   <li.selected>
-                    <a!href=@AboutR@> About
+                    <a href=@{AboutR}> About
                 $else
                   <li>
-                    <a!href=@AboutR@> About
+                    <a href=@{AboutR}> About
+               <li>
+                 $maybe u <- mu
+                   <span> You are logged in as
+                      <span style="font-size: 120%;"> #{userIdent $ snd u}. #
+                   <a href=@{AuthR LogoutR}>Logout
+                 $nothing
+                   <span> You are not logged in. #
+                   <a href=@{AuthR LoginR}>Login now
+
 
         <div#wrap-inner>
           <div#content>
             $maybe msg <- mmsg
                 <span#message> #{msg}
             ^{pageBody pc}
-            <div!style="clear: both; height: 1px; line-height: 1px;">
+            <div style="clear: both; height: 1px; line-height: 1px;">
       <div#footer>
         <div#footer-inner>
           <ul>
             <li>
-              <a!href="" &copy;>
+              <a href="" &copy;>

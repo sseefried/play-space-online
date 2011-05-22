@@ -135,11 +135,17 @@ input { font-size: 12px; margin: 0; padding: 0;}
 
 /** header **/
 
+h1.logo {
+  font-size: 20pt;
+  color: #FFF;
+  padding-top: 10px;
+}
+
 #header {
   background: url(/static/gfx/funky_top.jpg) top left repeat-x;
  height: 60px; position: relative;
 }
-#header-inner, #footer-inner { width: 980px; margin: 0 auto; position: relative;}
+#header-inner, #footer-inner { width: 980px; margin: 0 auto; position: relative; color: #DDF;}
 #logo { width: 200px; height: 62px; background: url(/static/gfx/logo.png) center; display: block;}
 
 /** footer **/

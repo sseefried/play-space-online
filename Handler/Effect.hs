@@ -7,6 +7,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Text.Printf
 import Control.Applicative
+import Data.Maybe
 
 -- friends
 import Foundation
@@ -20,12 +21,23 @@ getListEffectsR = do
                                        then [EffectCompilesEq True] else []) compilesParam
   results <- runDB $ selectList effectFilter [EffectNameAsc] 1000 0
   let effects = map snd results
+  users <- getUsers effects
+  let effectsAndUsers = zip effects users
   (_, form, encType, csrfHtml) <- runFormPost $ createFormlet Nothing
   let newForm = $(widgetFile "effects/new")
       canCancel = False
       info = information ""
   let json = jsonList (map (jsonScalar . T.unpack . effectName) effects)
   defaultLayoutJson (addWidget $(widgetFile "effects/list")) json
+  where
+    getUsers :: [Effect] -> Handler [User]
+    getUsers effects = do
+       mbUsers <- mapM getUser effects
+       return $ catMaybes mbUsers
+    getUser :: Effect -> Handler (Maybe User)
+    getUser effect = runDB $ get (effectUser effect)
+
+
 
 -- A simple form for creating a new effect.
 createFormlet :: Maybe Text ->Form s m Text

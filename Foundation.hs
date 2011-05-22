@@ -85,8 +85,10 @@ instance Yesod Foundation where
 
     defaultLayout widget = do
         mmsg <- getMessage
+        mu <- maybeAuth
         pc <- widgetToPageContent $ do
             widget
+            setTitle "PlaySpace Online"
             addCassius $(Settings.cassiusFile "default-layout")
             addLucius $(Settings.luciusFile "master")
 
@@ -130,9 +132,9 @@ instance YesodAuth Foundation where
     type AuthId Foundation = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = RootR
+    loginDest _ = ListEffectsR
     -- Where to send a user after logout
-    logoutDest _ = RootR
+    logoutDest _ = ListEffectsR
 
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
@@ -142,9 +144,9 @@ instance YesodAuth Foundation where
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
     authPlugins = [ authOpenId
-                  , authEmail
+--                  , authEmail
                   , authDummy
-                  , authHashDB
+--                  , authHashDB
                   ]
 
 instance YesodAuthEmail Foundation where
