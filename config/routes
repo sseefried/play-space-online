@@ -1,14 +1,15 @@
 /static StaticR Static getStatic
 /auth   AuthR   Auth   getAuth
 
-/favicon.ico                    FaviconR             GET
-/robots.txt                     RobotsR              GET
+/favicon.ico                  FaviconR             GET
+/robots.txt                   RobotsR              GET
 
-/                               RootR                GET
-/about                          AboutR               GET
+/                             RootR                GET
+/about                        AboutR               GET
 
-/effects                        ListEffectsR         GET
-/effects/create                 CreateEffectR        POST PUT
+/effects                      ListEffectsR         GET
+/effects/create               CreateEffectR        POST PUT
+
 -- Can use data types defined in config/models here!
 /effects/#UserId/#Text/show   ShowEffectR          GET
 /effects/#Text/edit           EditEffectR          GET

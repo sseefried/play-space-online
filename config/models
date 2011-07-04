@@ -9,8 +9,10 @@ Email
     UniqueEmail email
 
 Effect
-    name Text Eq Asc -- an effect name. Unique
-    user UserId Eq Asc -- the user who created it
-    code Text Update -- the associated PlaySpace code
-    compiles Bool Eq Update -- true if it compiles
+    name Text Eq Asc                 -- an effect name. Unique
+    user UserId Eq Asc               -- the user who created it
+    code Text Update                 -- the associated PlaySpace code
+    fragShaderCode Text Maybe Update -- cached fragment shader code
+    vertShaderCode Text Maybe Update -- cached vertex shader code
+    compiles Bool Eq Update          -- true if it compiles
     UniqueEffect user name

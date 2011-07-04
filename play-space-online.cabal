@@ -67,3 +67,5 @@ executable         play-space-online
                  , transformers
                  , warp
                  , blaze-builder
+                 , shady-gen
+                 , shady-graphics
