@@ -10,7 +10,7 @@
           <br>
           <br>
           <h4> Created by #{userIdent $ snd eu}
-          <br>
+          <br/>
           ^{effectThumbnail eu}
           <span.controls>
             <a href=@{ShowEffectR (effectUser $ fst eu) (effectName $ fst eu)}> Show
@@ -20,4 +20,5 @@
             <a href="#"> Run
             \ | #
             <input.custom type="submit" value="Delete" onclick="return confirm('Are you sure?');">
+
 ^{newForm}

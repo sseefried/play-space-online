@@ -27,12 +27,12 @@ getListEffectsR = do
   let newForm = $(widgetFile "effects/new")
       canCancel = False
       info = information ""
-  let effectThumbnail effect = $(widgetFile "effects/thumbnail")
+  let effectThumbnail (effect,user) = $(widgetFile "effects/thumbnail")
   let json = jsonList (map (jsonScalar . T.unpack . effectName) effects)
   defaultLayoutJson (do
-     addWidget $(widgetFile "effects/list")
-     addJulius $(juliusFile "glMatrix")
-     addJulius $(juliusFile "webgl")) json
+    addWidget $(widgetFile "effects/list")
+    addJulius [$julius| $(function() { webGLStart(); }); |]
+    ) json
   where
     getUsers :: [Effect] -> Handler [User]
     getUsers effects = do
@@ -320,3 +320,9 @@ defaultVertShaderCode = T.pack $ unlines [
   , "    _varying_SF = x10;"
   , "    _varying_SS = vec3(1.0 / sqrt(dot(x120,x120))) * x120;"
   , "}" ]
+
+dasherize :: Text -> Text
+dasherize = T.toLower . (T.replace " " "-")
+
+effectUnique :: Effect -> User -> Text
+effectUnique effect user = dasherize $ effectName effect `T.append` "-" `T.append` userIdent user

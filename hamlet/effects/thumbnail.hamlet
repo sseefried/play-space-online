@@ -1,8 +1,5 @@
-<canvas id="canvas" width="150" height="150"></div>
-<script id="shader-vs" type="x-shader/x-vertex">
-  #{fromMaybe "" $ effectVertShaderCode $ fst effect}
-</script>
-
-<script id="shader-fs" type="x-shader/x-fragment">
-  #{fromMaybe "" $ effectFragShaderCode $ fst effect}
-</script>
+<canvas.playspace-canvas id="#{effectUnique effect user}" width="150" height="150">
+<script.vertex-shader id="shader-vs-#{effectUnique effect user}" type="x-shader/x-vertex">
+  #{fromMaybe "" $ effectVertShaderCode $ effect}
+<script.fragment-shader id="shader-fs-#{effectUnique effect user}" type="x-shader/x-fragment">
+  #{fromMaybe "" $ effectFragShaderCode $ effect}

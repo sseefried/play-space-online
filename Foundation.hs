@@ -87,11 +87,14 @@ instance Yesod Foundation where
         mmsg <- getMessage
         mu <- maybeAuth
         pc <- widgetToPageContent $ do
-            widget
             setTitle "PlaySpace Online"
             addCassius $(Settings.cassiusFile "default-layout")
             addLucius $(Settings.luciusFile "master")
-
+            -- The order of the julius (javascript) inclusions matters
+            addJulius $(Settings.juliusFile "jquery")
+            addJulius $(Settings.juliusFile "glMatrix")
+            addJulius $(Settings.juliusFile "webgl")
+            widget
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 
     -- This is done to provide an optimization for serving static files from

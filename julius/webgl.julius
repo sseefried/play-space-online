@@ -1,170 +1,180 @@
+/* -*-javascript-*- */
+var time = 0.0;    /* Time since page loaded */
+var interval = 15; /* milliseconds between frames */
+var meshSize = 150; /* Number of squares in the mesh. Number of triangles is twice this */
+
+function initGL(canvas) {
     var gl;
-    function initGL(canvas) {
-        try {
-            gl = canvas.getContext("experimental-webgl");
-            gl.viewportWidth = canvas.width;
-            gl.viewportHeight = canvas.height;
-        } catch (e) {
-        }
-        if (!gl) {
-            alert("Could not initialise WebGL, sorry :-(");
-        }
+    try {
+        gl = canvas.getContext("experimental-webgl");
+        gl.viewportWidth = canvas.width;
+        gl.viewportHeight = canvas.height;
+	return gl;
+    } catch (e) {
+        return;
+    }
+}
+
+function getShader(gl, id) {
+    var shaderScript = document.getElementById(id);
+    if (!shaderScript) {
+        return null;
     }
 
-    function getShader(gl, id) {
-        var shaderScript = document.getElementById(id);
-        if (!shaderScript) {
-            return null;
+    var str = "";
+    var k = shaderScript.firstChild;
+    while (k) {
+        if (k.nodeType == 3) {
+            str += k.textContent;
         }
-
-        var str = "";
-        var k = shaderScript.firstChild;
-        while (k) {
-            if (k.nodeType == 3) {
-                str += k.textContent;
-            }
-            k = k.nextSibling;
-        }
-
-        var shader;
-        if (shaderScript.type == "x-shader/x-fragment") {
-            shader = gl.createShader(gl.FRAGMENT_SHADER);
-        } else if (shaderScript.type == "x-shader/x-vertex") {
-            shader = gl.createShader(gl.VERTEX_SHADER);
-        } else {
-            return null;
-        }
-
-        gl.shaderSource(shader, str);
-        gl.compileShader(shader);
-
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            alert(gl.getShaderInfoLog(shader));
-            return null;
-        }
-       return shader;
+        k = k.nextSibling;
     }
 
-    var shaderProgram;
-    var time = 0.0;
-    var interval = 15; /* milliseconds between frames */
-
-    function initShaders() {
-        var fragmentShader = getShader(gl, "shader-fs");
-        var vertexShader = getShader(gl, "shader-vs");
-
-        shaderProgram = gl.createProgram();
-        gl.attachShader(shaderProgram, vertexShader);
-        gl.attachShader(shaderProgram, fragmentShader);
-        gl.linkProgram(shaderProgram);
-
-        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            alert("Could not initialise shaders");
-        }
-
-        gl.useProgram(shaderProgram);
-
-        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "uv_a");
-        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-        shaderProgram.mvpMatrixUniform = gl.getUniformLocation(shaderProgram,
-                                          "ModelViewProjectionMatrix");
-
-        shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
-        shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "time");
-
+    var shader;
+    if (shaderScript.type == "x-shader/x-fragment") {
+        shader = gl.createShader(gl.FRAGMENT_SHADER);
+    } else if (shaderScript.type == "x-shader/x-vertex") {
+        shader = gl.createShader(gl.VERTEX_SHADER);
+    } else {
+        return null;
     }
 
-   var mvpMatrix = mat4.create();
-   var normalMatrix = mat3.create();
+    gl.shaderSource(shader, str);
+    gl.compileShader(shader);
 
-   mat4.identity(mvpMatrix);
-   mat3.identity(normalMatrix);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert(gl.getShaderInfoLog(shader));
+        return null;
+    }
+    return shader;
+}
 
-   mat4.rotate(mvpMatrix, Math.PI / 180 * 30 , [1,0,0]);
 
 
+function initShaders(gl, name) {
+    var fragmentShader = getShader(gl, "shader-fs-" + name );
+    var vertexShader = getShader(gl, "shader-vs-" + name);
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
 
-   var squareVertexPositionBuffer;
-
-    function initBuffers() {
-       var meshSize = 150;
-       squareVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-
-        vertices = mesh(meshSize);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-        squareVertexPositionBuffer.itemSize = 2;
-        squareVertexPositionBuffer.numItems = vertices.length / 2 ;
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert("Could not initialise shaders");
     }
 
-    function drawScene() {
-      gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(shaderProgram);
+
+    shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "uv_a");
+    gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+    shaderProgram.mvpMatrixUniform = gl.getUniformLocation(shaderProgram,
+							   "ModelViewProjectionMatrix");
+
+    shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
+    shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "time");
+    return shaderProgram;
+}
+
+function initBuffers(gl) {
+    var squareVertexPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+
+    vertices = mesh(meshSize);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    squareVertexPositionBuffer.itemSize = 2;
+    squareVertexPositionBuffer.numItems = vertices.length / 2 ;
+    return squareVertexPositionBuffer;
+}
+
+function drawScene(gl, shaderProgram, squareVertexPositionBuffer, mvpMatrix, normalMatrix) {
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-      gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
-                                 squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-      gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
-      gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
-      time += 1.0 / (interval * 4);
-      gl.uniform1f(shaderProgram.timeUniform, time);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
-    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
+                           squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
+    gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
+    time += 1.0 / (interval * 4);
+    gl.uniform1f(shaderProgram.timeUniform, time);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+}
 
-   /* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
-      to prevent this problem */
-   function mesh(n) {
-      var a = new Float32Array(2*(2*(n*(n+1))  + 2*(n-1)   ));
-      var i, j, len = 0;
-      var delta = 2.0 / n + 0.000000000000001;
+/* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
+   to prevent this problem */
+function mesh(n) {
+    var a = new Float32Array(2*(2*(n*(n+1))  + 2*(n-1)   ));
+    var i, j, len = 0;
+    var delta = 2.0 / n + 0.000000000000001;
 
-      var x, y = -1.0;
-      for (j = 0; j < n; j++, y+=delta) {
+    var x, y = -1.0;
+    for (j = 0; j < n; j++, y+=delta) {
         if (j > 0) {
-          /* Degenerate triangles */
-           a[len++] = 1.0; // x value
-           a[len++] = y; // y value
-           a[len++] = -1.0; // x value
-           a[len++] = y; // y value
+            /* Degenerate triangles */
+            a[len++] = 1.0; // x value
+            a[len++] = y; // y value
+            a[len++] = -1.0; // x value
+            a[len++] = y; // y value
         }
 
         for (i = 0, x = -1.0; i <= n; i++, x+=delta) {
-          a[len++] = x; // x value
-          a[len++] = y; // y value
-          a[len++] = x; // x value
-          a[len++] = y+delta; // y value
+            a[len++] = x; // x value
+            a[len++] = y; // y value
+            a[len++] = x; // x value
+            a[len++] = y+delta; // y value
         }
-     }
-     return a;
-   }
+    }
+    return a;
+}
 
-   function keyHandler(e) {
-     if (e.charCode == 119) {
-       mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
-       mat3.rotate(normalMatrix, 0.05, [1.0, 0.0, 0.0]);
-     }
-     if (e.charCode == 115) {
-       mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
-       mat3.rotate(normalMatrix, -0.05, [1.0, 0.0, 0.0]);
-     }
-     if (e.charCode == 97) {
-       mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
-       mat3.rotate(normalMatrix, 0.05, [0.0, 1.0, 0.0]);
-     }
-     if (e.charCode == 100) {
-       mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
-       mat3.rotate(normalMatrix, -0.05, [0.0, 1.0, 0.0]);
-     }
-   }
+// function keyHandler(e) {
+//     if (e.charCode == 119) {
+// 	mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
+// 	mat3.rotate(normalMatrix, 0.05, [1.0, 0.0, 0.0]);
+//     }
+//     if (e.charCode == 115) {
+// 	mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
+// 	mat3.rotate(normalMatrix, -0.05, [1.0, 0.0, 0.0]);
+//     }
+//     if (e.charCode == 97) {
+// 	mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
+// 	mat3.rotate(normalMatrix, 0.05, [0.0, 1.0, 0.0]);
+//     }
+//     if (e.charCode == 100) {
+// 	mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
+// 	mat3.rotate(normalMatrix, -0.05, [0.0, 1.0, 0.0]);
+//     }
+// }
 
-   function webGLStart() {
-        var canvas = document.getElementById("canvas");
-        initGL(canvas);
-        initShaders();
-        initBuffers();
+function webGLStart() {
+
+    $(".playspace-canvas").each(function(i) {
+        var gl, squareVertexPositionBuffer, shaderProgram;
+	
+        var mvpMatrix = mat4.create();
+        var normalMatrix = mat3.create();
+
+        mat4.identity(mvpMatrix);
+        mat3.identity(normalMatrix);
+
+        gl = initGL(this);
+
+	if (!gl && i === 0) {
+          alert("Could not initialise WebGL, sorry :-(");
+          return;
+        } else if (!gl) {
+          return;
+	}
+        shaderProgram = initShaders(gl, this.id);
+        squareVertexPositionBuffer = initBuffers(gl);
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
-        setInterval(drawScene, interval);
-   }
+
+        setInterval(function () { 
+            drawScene(gl, shaderProgram, squareVertexPositionBuffer, mvpMatrix, normalMatrix) 
+        }, interval);
+
+    });
+}
