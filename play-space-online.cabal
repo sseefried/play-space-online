@@ -34,6 +34,7 @@ library
                      Handler.Root
                      Handler.Effect
                      Handler.About
+                     Handler.Compile
 
 executable         play-space-online
     if flag(devel)
@@ -67,5 +68,10 @@ executable         play-space-online
                  , transformers
                  , warp
                  , blaze-builder
+                 , filepath
+                 , plugins
                  , shady-gen
                  , shady-graphics
+                 , vector-space
+                 , Boolean
+               

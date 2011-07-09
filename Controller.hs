@@ -14,6 +14,9 @@ import Yesod.Helpers.Auth
 import Database.Persist.GenericSql
 import Data.ByteString (ByteString)
 import Data.Dynamic (Dynamic, toDyn)
+import System.Directory ( getAppUserDataDirectory, doesDirectoryExist, createDirectory
+                        , removeDirectoryRecursive)
+import Control.Monad (when)
 
 -- Import all relevant handler modules here.
 import Handler.Root
@@ -40,10 +43,19 @@ getRobotsR = return $ RepPlain $ toContent ("User-agent: *" :: ByteString)
 withFoundation :: (Application -> IO a) -> IO a
 withFoundation f = Settings.withConnectionPool $ \p -> do
     runConnectionPool (runMigration migrateAll) p
-    let h = Foundation s p
+    cacheDir <- createCache
+    let h = Foundation { getStatic = s
+                       , connPool = p
+                       , cacheDir = cacheDir }
     toWaiApp h >>= f
   where
     s = static Settings.staticdir
+    createCache = do
+      cache <- getAppUserDataDirectory "play-space-cache"
+      exists <- doesDirectoryExist cache
+      when exists (removeDirectoryRecursive cache)
+      createDirectory cache
+      return cache
 
 withDevelApp :: Dynamic
 withDevelApp = toDyn (withFoundation :: (Application -> IO ()) -> IO ())

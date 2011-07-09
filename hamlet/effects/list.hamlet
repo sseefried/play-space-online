@@ -17,8 +17,6 @@
             \ | #
             <a href=@{EditEffectR (effectName $ fst eu)}> Edit
             \ | #
-            <a href="#"> Run
-            \ | #
             <input.custom type="submit" value="Delete" onclick="return confirm('Are you sure?');">
 
 ^{newForm}

@@ -46,7 +46,8 @@ import Data.Text (Text)
 -- access to the data present here.
 data Foundation = Foundation
     { getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Settings.ConnectionPool -- ^ Database connection pool.
+    , connPool  :: Settings.ConnectionPool -- ^ Database connection pool.
+    , cacheDir  :: FilePath
     }
 
 -- | A useful synonym; most of the handler functions in your application

@@ -9,7 +9,21 @@ import Text.Printf
 import Control.Applicative
 import Data.Maybe
 
+-- import Data.Boolean
+-- import Shady.Lighting
+-- import Data.Derivative
+-- import Data.VectorSpace
+-- import Shady.ParamSurf
+-- import Shady.CompileSurface
+-- import Shady.Color
+-- import Shady.Language.Exp hiding (get)
+-- import Shady.Complex
+-- import Shady.Misc
+-- import Shady.CompileE
+-- import qualified Shady.Vec as V
+
 -- friends
+import Handler.Compile
 import Foundation
 
 
@@ -147,7 +161,7 @@ updateEffect name = do
                runDB $ replace key (effect {effectCompiles = False})
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
-                 addHtml $ information err
+                 addHtml . information $ T.pack err
 --                 addWidget $(widgetFile "effects/preview")
              (Right _) -> do
                runDB $ replace key (effect {effectCompiles = True})
@@ -191,11 +205,6 @@ data EditParams = EditParams { editParamsName :: Text
                              , editParamsCode :: Textarea }
 
 
--- | Compile the effect code. Return either the path to the compiled binary (Right) or
---   the compiler error (Left).
---
-compileEffect :: Effect -> Handler (Either Text (Text, FilePath))
-compileEffect _ = return $ Left "Compilation of effects is not yet implemented"
 
 defaultFragShaderCode :: Text
 defaultFragShaderCode = T.pack $ unlines [
