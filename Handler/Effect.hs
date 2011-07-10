@@ -83,9 +83,7 @@ getShowEffectR userId name = do
 
 showEffect :: Effect -> Handler RepHtml
 showEffect effect = do
-  mbUser <- runDB $ get (effectUser effect)
-  let user = fromMaybe (error "should not happen") mbUser
-      eu = (effect,user)
+  eu <- readEffectAndUser effect
   defaultLayout $ do
      addWidget $(widgetFile "effects/show")
      startWebGLScript
@@ -99,6 +97,7 @@ getEditEffectR name = do
   mbResult <- runDB (getBy $ UniqueEffect userId name)
   case mbResult of
     Just (key, effect) -> do
+      eu <- readEffectAndUser effect
       -- this is the first time we show the form so we don't care about the result type.
       (_, form, encType, csrfHtml) <- runFormPost $ editFormlet effect
       defaultLayout $ do
@@ -118,6 +117,7 @@ updateEffect name = do
   mbResult <- runDB $ getBy (UniqueEffect userId name)
   case mbResult of
      Just (key, effect') -> do
+       eu <- readEffectAndUser effect'
        (res, form, encType, csrfHtml) <- runFormPost $ editFormlet effect'
        eResult <- case res of
          FormMissing   -> return (Left "Form is blank" :: Either Text EditParams)
@@ -145,6 +145,7 @@ updateEffect name = do
              (Right ()) -> do
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
+                 startWebGLScript
 --                 addWidget $(widgetFile "effects/preview")
      Nothing -> error "die die die"-- FIXME: Need to handle this gracefully.
 
@@ -211,3 +212,10 @@ effectThumbnail (effect,user) size = $(widgetFile "effects/thumbnail")
 
 startWebGLScript :: Widget ()
 startWebGLScript = addJulius [$julius| $(function() { webGLStart(); }); |]
+
+
+readEffectAndUser :: Effect -> Handler (Effect,User)
+readEffectAndUser effect = do
+  mbUser <- runDB $ get (effectUser effect)
+  let user = fromMaybe (error "should not happen") mbUser
+  return (effect,user)

@@ -126,7 +126,7 @@ function createClosures(canvas, i) {
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
 
-    mat4.translate(mvpMatrix, [0.0, 0.0, -0.5]);
+    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
     gl = initGL(canvas);
 
     if (!gl && i === 0) {

@@ -1,6 +1,9 @@
 <h1> Edit effect / #
   <strong> #{effectName effect}
 
+<div style="margin: auto; width: 150px;">
+  ^{effectThumbnail eu 150}
+
 <form.edit-effect enctype=#{encType} action=@{UpdateEffectR $ effectName effect} method=POST>
   #{csrfHtml}
   ^{form}
