@@ -1,5 +1,4 @@
 /* -*-javascript-*- */
-var time = 0.0;    /* Time since page loaded */
 var interval = 15; /* milliseconds between frames */
 var meshSize = 150; /* Number of squares in the mesh. Number of triangles is twice this */
 
@@ -49,8 +48,6 @@ function getShader(gl, id) {
     return shader;
 }
 
-
-
 function initShaders(gl, name) {
     var fragmentShader = getShader(gl, "shader-fs-" + name );
     var vertexShader = getShader(gl, "shader-vs-" + name);
@@ -85,21 +82,6 @@ function initBuffers(gl) {
     squareVertexPositionBuffer.itemSize = 2;
     squareVertexPositionBuffer.numItems = vertices.length / 2 ;
     return squareVertexPositionBuffer;
-}
-
-function drawScene(gl, shaderProgram, squareVertexPositionBuffer, mvpMatrix, normalMatrix) {
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
-                           squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
-    gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
-    time += 1.0 / (interval * 4);
-    gl.uniform1f(shaderProgram.timeUniform, time);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
 }
 
 /* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
@@ -148,33 +130,49 @@ function mesh(n) {
 //     }
 // }
 
+
+function drawSceneClosure(canvas, i) {
+    var gl, squareVertexPositionBuffer, shaderProgram,
+        mvpMatrix = mat4.create(),
+        normalMatrix = mat3.create(),
+        time = 0.0;
+
+    mat4.identity(mvpMatrix);
+    mat3.identity(normalMatrix);
+
+    mat4.rotate(mvpMatrix, 0.000001, [0.0, 1.0, 0.0]);
+    gl = initGL(canvas);
+
+    if (!gl && i === 0) {
+      alert("Could not initialise WebGL, sorry :-(");
+      return;
+    } else if (!gl) {
+      return;
+    }
+    shaderProgram = initShaders(gl, canvas.id);
+    squareVertexPositionBuffer = initBuffers(gl);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.enable(gl.DEPTH_TEST);
+
+    return function () {
+      gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+      gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
+                             squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+      gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
+      gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
+
+      time += 1.0 / (interval * 4);
+      gl.uniform1f(shaderProgram.timeUniform, time);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+    }
+}
+
 function webGLStart() {
-
     $(".playspace-canvas").each(function(i) {
-        var gl, squareVertexPositionBuffer, shaderProgram;
-	
-        var mvpMatrix = mat4.create();
-        var normalMatrix = mat3.create();
-
-        mat4.identity(mvpMatrix);
-        mat3.identity(normalMatrix);
-
-        gl = initGL(this);
-
-	if (!gl && i === 0) {
-          alert("Could not initialise WebGL, sorry :-(");
-          return;
-        } else if (!gl) {
-          return;
-	}
-        shaderProgram = initShaders(gl, this.id);
-        squareVertexPositionBuffer = initBuffers(gl);
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
-
-        setInterval(function () { 
-            drawScene(gl, shaderProgram, squareVertexPositionBuffer, mvpMatrix, normalMatrix) 
-        }, interval);
-
+	var closure = drawSceneClosure(this, i);
+        setInterval(closure, interval);
     });
 }
