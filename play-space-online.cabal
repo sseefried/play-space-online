@@ -68,6 +68,7 @@ executable         play-space-online
                  , transformers
                  , warp
                  , blaze-builder
+                 , blaze-html
                  , filepath
                  , plugins
                  , shady-gen

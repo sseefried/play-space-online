@@ -8,19 +8,8 @@ import qualified Data.Text as T
 import Text.Printf
 import Control.Applicative
 import Data.Maybe
-
--- import Data.Boolean
--- import Shady.Lighting
--- import Data.Derivative
--- import Data.VectorSpace
--- import Shady.ParamSurf
--- import Shady.CompileSurface
--- import Shady.Color
--- import Shady.Language.Exp hiding (get)
--- import Shady.Complex
--- import Shady.Misc
--- import Shady.CompileE
--- import qualified Shady.Vec as V
+import Data.String
+import Text.Blaze
 
 -- friends
 import Handler.Compile
@@ -54,8 +43,6 @@ getListEffectsR = do
        return $ catMaybes mbUsers
     getUser :: Effect -> Handler (Maybe User)
     getUser effect = runDB $ get (effectUser effect)
-
-
 
 -- A simple form for creating a new effect.
 createFormlet :: Maybe Text ->Form s m Text
@@ -155,7 +142,7 @@ updateEffect name = do
                                (Just defaultFragShaderCode)
                                (Just defaultVertShaderCode) True
            runDB $ replace key effect
-           compileRes <- compileEffect effect
+           compileRes <- compileEffect key effect
            case compileRes of
              (Left err) -> do
                runDB $ replace key (effect {effectCompiles = False})
@@ -163,8 +150,7 @@ updateEffect name = do
                  addWidget $(widgetFile "effects/edit")
                  addHtml . information $ T.pack err
 --                 addWidget $(widgetFile "effects/preview")
-             (Right _) -> do
-               runDB $ replace key (effect {effectCompiles = True})
+             (Right ()) -> do
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
 --                 addWidget $(widgetFile "effects/preview")
@@ -183,10 +169,7 @@ deleteEffect name = do
   runDB $ deleteBy $ UniqueEffect userId name
   redirect RedirectSeeOther ListEffectsR
 
-
-
 -------
-
 
 effectNotFound :: Text -> Handler RepHtml
 effectNotFound name = defaultLayout $ addWidget $(widgetFile "effects/not-found")
@@ -335,3 +318,14 @@ dasherize = T.toLower . (T.replace " " "-")
 
 effectUnique :: Effect -> User -> Text
 effectUnique effect user = dasherize $ effectName effect `T.append` "-" `T.append` userIdent user
+
+--
+-- UnsafeText will not be escaped when interpolating in Hamlet templates.
+--
+newtype UnsafeText = UnsafeText Text
+
+instance IsString UnsafeText where
+  fromString = UnsafeText . T.pack
+
+instance ToHtml UnsafeText where
+  toHtml (UnsafeText text) = preEscapedText text

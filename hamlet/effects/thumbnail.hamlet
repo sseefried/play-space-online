@@ -1,5 +1,5 @@
 <canvas.playspace-canvas id="#{effectUnique effect user}" width="150" height="150">
 <script.vertex-shader id="shader-vs-#{effectUnique effect user}" type="x-shader/x-vertex">
-  #{fromMaybe "" $ effectVertShaderCode $ effect}
+  #{(maybe "" UnsafeText) $ effectVertShaderCode effect}
 <script.fragment-shader id="shader-fs-#{effectUnique effect user}" type="x-shader/x-fragment">
-  #{fromMaybe "" $ effectFragShaderCode $ effect}
+  #{(maybe "" UnsafeText) $ effectFragShaderCode effect}
