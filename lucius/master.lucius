@@ -345,3 +345,5 @@ ul li .controls { clear: #4083a9;}
 }
 
 .errors { color: #333; font-weight: bold; }
+
+strong { font-weight: bold; }

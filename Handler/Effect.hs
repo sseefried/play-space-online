@@ -9,40 +9,27 @@ import Text.Printf
 import Control.Applicative
 import Data.Maybe
 import Data.String
-import Text.Blaze
+
 
 -- friends
 import Handler.Compile
+import Handler.UnsafeText
 import Foundation
-
 
 getListEffectsR :: Handler RepHtmlJson
 getListEffectsR = do
   -- TODO: For now just return all effects. Pagination to come.
-  compilesParam <- lookupGetParam "compiles"
-  let effectFilter = maybe [] (\val -> if val == "yes"
-                                       then [EffectCompilesEq True] else []) compilesParam
-  results <- runDB $ selectList effectFilter [EffectNameAsc] 1000 0
-  let effects = map snd results
-  users <- getUsers effects
-  let effectsAndUsers = zip effects users
+  effectsAndUsers <- readEffectsAndUsers
   (_, form, encType, csrfHtml) <- runFormPost $ createFormlet Nothing
   let newForm = $(widgetFile "effects/new")
       canCancel = False
       info = information ""
-  let effectThumbnail (effect,user) = $(widgetFile "effects/thumbnail")
-  let json = jsonList (map (jsonScalar . T.unpack . effectName) effects)
+      (width,height) = (150, 150)
+  let json = jsonList (map (jsonScalar . T.unpack . effectName) (map fst effectsAndUsers))
   defaultLayoutJson (do
     addWidget $(widgetFile "effects/list")
-    addJulius [$julius| $(function() { webGLStart(); }); |]
+    startWebGLScript
     ) json
-  where
-    getUsers :: [Effect] -> Handler [User]
-    getUsers effects = do
-       mbUsers <- mapM getUser effects
-       return $ catMaybes mbUsers
-    getUser :: Effect -> Handler (Maybe User)
-    getUser effect = runDB $ get (effectUser effect)
 
 -- A simple form for creating a new effect.
 createFormlet :: Maybe Text ->Form s m Text
@@ -95,7 +82,13 @@ getShowEffectR userId name = do
     Nothing         -> effectNotFound name
 
 showEffect :: Effect -> Handler RepHtml
-showEffect effect = defaultLayout $ addWidget $(widgetFile "effects/show")
+showEffect effect = do
+  mbUser <- runDB $ get (effectUser effect)
+  let user = fromMaybe (error "should not happen") mbUser
+      eu = (effect,user)
+  defaultLayout $ do
+     addWidget $(widgetFile "effects/show")
+     startWebGLScript
 
 defaultEffectCode :: Text
 defaultEffectCode = "this code is broken"
@@ -139,8 +132,7 @@ updateEffect name = do
          Right params -> do
            let effect = Effect (editParamsName params) userId
                                (unTextarea $ editParamsCode params)
-                               (Just defaultFragShaderCode)
-                               (Just defaultVertShaderCode) True
+                               Nothing Nothing True
            runDB $ replace key effect
            compileRes <- compileEffect key effect
            case compileRes of
@@ -187,145 +179,35 @@ editFormlet effect = do
 data EditParams = EditParams { editParamsName :: Text
                              , editParamsCode :: Textarea }
 
-
-
-defaultFragShaderCode :: Text
-defaultFragShaderCode = T.pack $ unlines [
-    "#define gl_ModelViewProjectionMatrix ModelViewProjectionMatrix"
-  , "#define gl_NormalMatrix NormalMatrix"
-  , ""
-  , "precision highp float;"
-  , ""
-  , "uniform mat4 gl_ModelViewProjectionMatrix;"
-  , "uniform mat3 gl_NormalMatrix;"
-  , ""
-  , "#define _uniform time"
-  , "#define _attribute uv_a"
-  , "#define _varying_F uv_v"
-  , "#define _varying_S pos_v"
-  , ""
-  , "uniform   float _uniform;"
-  , "varying   vec2 _varying_F;"
-  , "varying   vec3 _varying_SF;"
-  ,"varying   vec3 _varying_SS;"
-  ,"void main () {"
-  ,"    vec2  x24 = vec2(0.5,0.5);"
-  ,"    vec2  x42 = vec2(1.05,1.05);"
-  ,"    float x52 = cos(_uniform);"
-  ,"    float x54 = sin(_uniform);"
-  ,"    vec2  x69 = vec2(1.0,1.0);"
-  ,"    bvec2 x21 = lessThan(x24"
-  ,"                        ,mod(1.0 / (sin(vec2(_uniform,_uniform)) + x42) *"
-  ,"                             vec2(dot(vec2(x52,x54),_varying_F)"
-  ,"                                 ,dot(vec2(x52,- x54),_varying_F.yx))"
-  ,"                            ,x69));"
-  ,"    bool  x16 = x21.x == x21.y;"
-  ,"    vec3  x94 = vec3(-0.37139067,-0.0,-0.9284767);"
-  ,"    float x88 = abs(dot(_varying_SS,x94));"
-  ,"    vec3  x126 = vec3(0.37139067,0.0,0.9284767);"
-  ,"    vec3  x142 = vec3(1.0,1.0,-2.5);"
-  ,"    float x97 = exp(log(max(0.0"
-  ,"                           ,dot(vec3(2.0 * dot(_varying_SS,x94)) * _varying_SS +"
-  ,"                                x126"
-  ,"                               ,vec3(1.0 / sqrt(dot(x142 - _varying_SF"
-  ,"                                                   ,x142 - _varying_SF))) *"
-  ,"                                (x142 - _varying_SF)))) * 15.0);"
-  ,"    gl_FragColor = vec4(dot(vec2(x16 ? 0.0 : 1.0,0.5)"
-  ,"                           ,vec2(0.2 + 0.4 * x88,x97))"
-  ,"                       ,0.5 * x97"
-  ,"                       ,dot(vec2(x16 ? 1.0 : 0.0,0.5),vec2(0.2 + 0.4 * x88,x97))"
-  ,"                       ,1.0 + x88 + x97);"
-  ,"}"]
-
-defaultVertShaderCode :: Text
-defaultVertShaderCode = T.pack $ unlines [
-    "#define gl_ModelViewProjectionMatrix ModelViewProjectionMatrix"
-  , "#define gl_NormalMatrix NormalMatrix"
-  , ""
-  , "precision highp float;"
-  , ""
-  , "uniform mat4 gl_ModelViewProjectionMatrix;"
-  , "uniform mat3 gl_NormalMatrix;"
-  , ""
-  , "#define _uniform time"
-  , "#define _attribute uv_a"
-  , "#define _varying_F uv_v"
-  , "#define _varying_S pos_v"
-  , ""
-  , "uniform   float _uniform;"
-  , "attribute vec2 _attribute;"
-  , "varying   vec2 _varying_F;"
-  , "varying   vec3 _varying_SF;"
-  , "varying   vec3 _varying_SS;"
-  , "void main () {"
-  , "    vec2  x15 = _attribute;"
-  , "    float x27 = x15.y;"
-  , "    vec2  x39 = vec2(2.0,9.0);"
-  , "    float x34 = sin(dot(x39,vec2(_uniform,sqrt(dot(x15,x15)))));"
-  , "    float x53 = 1.0 / exp(log(1.0 + sqrt(dot(x15,x15))) * 3.0);"
-  , "    float x81 = 0.5 * _uniform;"
-  , "    float x79 = cos(x81);"
-  , "    float x85 = sin(x81);"
-  , "    vec3  x10 = vec3(x15.x"
-  , "                    ,dot(vec2(x27,- x34 * x53),vec2(x79,x85))"
-  , "                    ,dot(vec2(x34 * x53,x27),vec2(x79,x85)));"
-  , "    vec2  x172 = vec2(2.0,9.0);"
-  , "    float x178 = dot(x15,x15);"
-  , "    float x169 = dot(x172,vec2(_uniform,sqrt(x178)));"
-  , "    float x167 = cos(x169);"
-  , "    float x194 = 1.0 / (2.0 * sqrt(x178));"
-  , "    float x205 = x15.x;"
-  , "    float x207 = sin(x169);"
-  , "    float x226 = dot(x15,x15);"
-  , "    float x221 = 1.0 + sqrt(x226);"
-  , "    float x216 = log(x221) * 3.0;"
-  , "    float x214 = exp(x216);"
-  , "    float x212 = 1.0 / x214;"
-  , "    float x238 = 1.0 / (x214 * x214);"
-  , "    float x248 = exp(x216);"
-  , "    float x258 = 1.0 / x221;"
-  , "    float x265 = 1.0 / (2.0 * sqrt(x226));"
-  , "    float x156 = dot(vec2(x167 * (9.0 * (x194 * (x205 + x205))),x207)"
-  , "                    ,vec2(x212"
-  , "                         ,x238 * (x248 * (x258 * (x265 * (x205 + x205)) *"
-  , "                                          3.0))));"
-  , "    float x309 = x15.y;"
-  , "    float x287 = dot(vec2(x167 * (9.0 * (x194 * (x309 + x309))),x207)"
-  , "                    ,vec2(x212"
-  , "                         ,x238 * (x248 * (x258 * (x265 * (x309 + x309)) *"
-  , "                                          3.0))));"
-  , "    float x343 = - x287 * x85;"
-  , "    float x145 = dot(- (vec2(x156,x156)) * vec2(x85,x79)"
-  , "                    ,vec2(x287 * x79,x79) + vec2(x85,x343));"
-  , "    float x351 = - x287 * x79;"
-  , "    float x356 = - x85;"
-  , "    float x348 = x351 + x356;"
-  , "    float x358 = x79 + x343;"
-  , "    float x132 = 1.0 / sqrt(dot(vec3(vec2(x145,x348),x358)"
-  , "                               ,vec3(vec2(x145,x348),x358)));"
-  , "    vec3  x120 = gl_NormalMatrix * (vec3(x132,x132,x132) * vec3(x145"
-  , "                                                               ,vec2(x351,x79) +"
-  , "                                                                vec2(x356"
-  , "                                                                    ,x343)));"
-  , "    gl_Position = gl_ModelViewProjectionMatrix * vec4(x10,1.0);"
-  , "    _varying_F = _attribute;"
-  , "    _varying_SF = x10;"
-  , "    _varying_SS = vec3(1.0 / sqrt(dot(x120,x120))) * x120;"
-  , "}" ]
-
 dasherize :: Text -> Text
 dasherize = T.toLower . (T.replace " " "-")
 
 effectUnique :: Effect -> User -> Text
 effectUnique effect user = dasherize $ effectName effect `T.append` "-" `T.append` userIdent user
 
---
--- UnsafeText will not be escaped when interpolating in Hamlet templates.
---
-newtype UnsafeText = UnsafeText Text
 
-instance IsString UnsafeText where
-  fromString = UnsafeText . T.pack
+--
+-- Helpers
+--
+readEffectsAndUsers :: Handler [(Effect, User)]
+readEffectsAndUsers = do
+  compilesParam <- lookupGetParam "compiles"
+  let effectFilter = maybe [] (\val -> if val == "yes"
+                                       then [EffectCompilesEq True] else []) compilesParam
+  results <- runDB $ selectList effectFilter [EffectNameAsc] 1000 0
+  let effects = map snd results
+  users <- getUsers effects
+  return $ zip effects users
+  where
+    getUsers :: [Effect] -> Handler [User]
+    getUsers effects = do
+       mbUsers <- mapM getUser effects
+       return $ catMaybes mbUsers
+    getUser :: Effect -> Handler (Maybe User)
+    getUser effect = runDB $ get (effectUser effect)
 
-instance ToHtml UnsafeText where
-  toHtml (UnsafeText text) = preEscapedText text
+effectThumbnail :: (Effect,User) -> Int -> Widget ()
+effectThumbnail (effect,user) size = $(widgetFile "effects/thumbnail")
+
+startWebGLScript :: Widget ()
+startWebGLScript = addJulius [$julius| $(function() { webGLStart(); }); |]

@@ -19,6 +19,7 @@ import Shady.CompileE
 
 -- friends
 import Foundation
+import Handler.UnsafeText
 
 -- | Compile the effect code. Return either the path to the compiled GLSL program (Right) or
 --   the compiler error (Left).
@@ -52,6 +53,26 @@ compileEffect key effect = do
     indent :: Text -> Text
     indent = T.concat . intersperse "\n" . map ("    " `T.append`) . T.lines
 
+
+defaultFragShaderCode :: UnsafeText
+defaultFragShaderCode = UnsafeText . T.unlines $ [
+    "precision highp float;"
+  , ""
+  , "uniform float time;"
+  , "void main() {"
+  , "  gl_FragColor = vec4(0.5,0.5,0.5,1.0);"
+  , "}" ]
+
+defaultVertShaderCode :: UnsafeText
+defaultVertShaderCode = UnsafeText . T.unlines $ [
+    "uniform mat4 ModelViewProjectionMatrix;"
+  , "uniform mat3 NormalMatrix;"
+  , ""
+  , "attribute vec2 uv_a;"
+  , "void main() {"
+  , "  gl_Position = ModelViewProjectionMatrix * vec4(uv_a.x, uv_a.y, 1.0, 1.0);"
+  , "}" ]
+
 --
 -- This Haskell code needs to be run through CPP to be valid.
 --
@@ -71,12 +92,26 @@ effectCodeWrapper codeStr = T.unlines [
   , "import Shady.Complex"
   , "import Shady.Misc"
   , "import Shady.CompileE"
+  , "import Shady.Image"
   , "import qualified Shady.Vec as V"
   , ""
+  , "eyePos :: EyePos"
+  , "eyePos = (0, 0.75, 2.5)     -- tweak"
+  , ""
+  , "eyePosE :: EyePosE"
+  , "eyePosE = pureE (V.vec3 ex ey ez) where (ex,ey,ez) = eyePos"
+  , ""
+  , "makeFullSurf :: (T -> (Image Color, SurfD)) -> (T -> FullSurf)"
+  , "makeFullSurf anim t = (lighter,view,surf,img)"
+  , " where"
+  , "   (img, surf)  = anim t"
+  , "   lighter = basicStd"
+  , "   view    = view1"
+  , ""
   , "EFFECT_NAME :: GLSL R1 R2"
-  , "EFFECT_NAME = effect"
+  , "EFFECT_NAME = surfBProg eyePosE $ makeFullSurf effect"
   , "  where"
-  , "    effect :: GLSL R1 R2"
+  , "    effect :: T -> (Image Color, SurfD)"
   , "{-# LINE 1 \"Code.hs\" #-}" ] `T.append` codeStr
 
 addShaderHeaders :: String -> Text

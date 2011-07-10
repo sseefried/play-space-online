@@ -35,6 +35,7 @@ library
                      Handler.Effect
                      Handler.About
                      Handler.Compile
+                     Handler.UnsafeText
 
 executable         play-space-online
     if flag(devel)

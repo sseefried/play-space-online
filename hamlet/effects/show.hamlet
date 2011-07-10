@@ -4,14 +4,12 @@
 
 <h1> Effect / #
   <strong> #{effectName effect}
-
-
-<h2> Code
-<pre.code-container> #{effectCode effect}
+^{effectThumbnail eu 600}
+<p>Use <strong>W</strong>, <strong>A</strong>, <strong>S</strong> and <strong>D</strong> #
+   to rotate.</p>
+<p>Use <strong>Q</strong> and <strong>Z</strong> to zoom.</p>
 <form action=@{DeleteEffectR $ effectName effect} method=POST>
   <div.controls>
     <a href=@{EditEffectR $ effectName effect}> Edit
-    \ | #
-    <a href="#"> Run
     \ | #
     <input.custom type=submit value=Delete onclick="return confirm('Are you sure?');">
