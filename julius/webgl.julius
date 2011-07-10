@@ -156,17 +156,24 @@ function createClosures(canvas, i) {
     }
 
     var khc = function keyHandler(e) {
-      if (e.charCode == 119) {
+	if (e.charCode == 119) { /* 119 = W */
         mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
       }
-      if (e.charCode == 115) {
+
+      if (e.charCode == 115) { /* 115 = S */
         mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
       }
-      if (e.charCode == 97) {
+      if (e.charCode == 97) { /* 97 = A */
         mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
       }
-      if (e.charCode == 100) {
+      if (e.charCode == 100) { /* 100 = D */
         mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
+      }
+      if (e.charCode == 113) { /* 100 = Q */
+        mat4.translate(mvpMatrix, [0.0, 0.0, 0.05]);
+      }
+      if (e.charCode == 122) { /* 100 = Z */
+        mat4.translate(mvpMatrix, [0.0, 0.0, -0.05]);
       }
     };
 
