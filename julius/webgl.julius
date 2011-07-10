@@ -8,7 +8,7 @@ function initGL(canvas) {
         gl = canvas.getContext("experimental-webgl");
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
-	return gl;
+        return gl;
     } catch (e) {
         return;
     }
@@ -66,7 +66,7 @@ function initShaders(gl, name) {
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
     shaderProgram.mvpMatrixUniform = gl.getUniformLocation(shaderProgram,
-							   "ModelViewProjectionMatrix");
+                                                           "ModelViewProjectionMatrix");
 
     shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
     shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "time");
@@ -111,27 +111,13 @@ function mesh(n) {
     return a;
 }
 
-// function keyHandler(e) {
-//     if (e.charCode == 119) {
-// 	mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
-// 	mat3.rotate(normalMatrix, 0.05, [1.0, 0.0, 0.0]);
-//     }
-//     if (e.charCode == 115) {
-// 	mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
-// 	mat3.rotate(normalMatrix, -0.05, [1.0, 0.0, 0.0]);
-//     }
-//     if (e.charCode == 97) {
-// 	mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
-// 	mat3.rotate(normalMatrix, 0.05, [0.0, 1.0, 0.0]);
-//     }
-//     if (e.charCode == 100) {
-// 	mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
-// 	mat3.rotate(normalMatrix, -0.05, [0.0, 1.0, 0.0]);
-//     }
-// }
 
-
-function drawSceneClosure(canvas, i) {
+/*
+ * Creates the drawScene and keyHandler closures for each effect
+ * See this Stack Overflow post for more detail on closures:
+ *   http://stackoverflow.com/questions/111102/how-do-javascript-closures-work
+ */
+function createClosures(canvas, i) {
     var gl, squareVertexPositionBuffer, shaderProgram,
         mvpMatrix = mat4.create(),
         normalMatrix = mat3.create(),
@@ -140,7 +126,7 @@ function drawSceneClosure(canvas, i) {
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
 
-    mat4.rotate(mvpMatrix, 0.000001, [0.0, 1.0, 0.0]);
+    mat4.translate(mvpMatrix, [0.0, 0.0, -0.5]);
     gl = initGL(canvas);
 
     if (!gl && i === 0) {
@@ -154,7 +140,7 @@ function drawSceneClosure(canvas, i) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
-    return function () {
+    var dsc = function () {
       gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -168,11 +154,30 @@ function drawSceneClosure(canvas, i) {
       gl.uniform1f(shaderProgram.timeUniform, time);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
     }
+
+    var khc = function keyHandler(e) {
+      if (e.charCode == 119) {
+        mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
+      }
+      if (e.charCode == 115) {
+        mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
+      }
+      if (e.charCode == 97) {
+        mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
+      }
+      if (e.charCode == 100) {
+        mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
+      }
+    };
+
+    return { drawSceneClosure: dsc, keyHandlerClosure: khc };
 }
 
 function webGLStart() {
     $(".playspace-canvas").each(function(i) {
-	var closure = drawSceneClosure(this, i);
-        setInterval(closure, interval);
+        var closures = createClosures(this, i);
+        setInterval(closures.drawSceneClosure, interval);
+	console.log($(this));
+	$(this).keypress(closures.keyHandlerClosure);
     });
 }
