@@ -330,6 +330,7 @@ ul li .controls { clear: #4083a9;}
   color: #C00;
   margin: 10px;
   font-family: courier;
+  white-space: pre;
 }
 
 .edit-effect button.get-funky {
