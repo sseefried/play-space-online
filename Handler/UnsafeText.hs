@@ -1,7 +1,7 @@
 module Handler.UnsafeText where
 
 import Data.String
-import Data.Text (pack)
+import Data.Text (pack, Text)
 import Text.Blaze
 
 --
