@@ -1,6 +1,10 @@
 /* -*-javascript-*- */
 var interval = 15; /* milliseconds between frames */
 var meshSize = 150; /* Number of squares in the mesh. Number of triangles is twice this */
+var slowDownFactor = 1000.0; /* Time since start (in milliseconds) is divided by this value */
+var KeyState = { up: 0, down:  1 };
+var Axis = { x: 0, y: 1, z: 2};
+var RotationDirection = { positive: 0, negative: 1};
 
 function initGL(canvas) {
     var gl;
@@ -111,6 +115,75 @@ function mesh(n) {
     return a;
 }
 
+function rotateAndZoomView(last, now, keyValues, mvpMatrix) {
+  rotateAboutAxis(last, now, keyValues.up,    RotationDirection.positive, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.down,  RotationDirection.negative, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.left,  RotationDirection.positive, Axis.y, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.right, RotationDirection.negative, Axis.y, mvpMatrix);
+}
+
+function getDuration(last, now, values) {
+    /* Did a keyDown happen this time around? */
+
+    var keyDown = values.downTime >= last && values.downTime < now,
+        keyUp   = values.upTime   >= last && values.upTime   < now,
+        duration;
+
+    if (keyDown && keyUp) {
+        if (values.downTime < values.upTime) {
+          // Case 1
+          // |  D      U |
+          duration = values.upTime - values.downTime;
+        } else {
+          // Case 2
+          // | U      D |
+          duration = (now - values.downTime) + (values.upTime - last);
+        }
+    }
+     // Case 3
+     // |    U       |
+    if (keyDown && !keyUp) {
+      duration = values.upTime - last;
+    }
+
+    // Case 4
+    // |     D      |
+    if (!keyDown && keyUp) {
+      duration = last - keyValue.up.downTime;
+    }
+
+    if (!keyDown && !keyUp) {
+      if (values.state == KeyState.up) {
+        duration = 0;
+      }
+      if (values.state == KeyState.down) {
+        duration = now - last;
+      }
+    }
+    return duration;
+}
+
+function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
+  var duration = getDuration(last, now, values), axisVector, amount;
+
+  switch (axis) {
+    case Axis.x:
+      axisVector = [1.0, 0.0, 0.0];
+      break;
+    case Axis.y:
+      axisVector = [0.0, 1.0, 0.0];
+      break;
+    case Axis.z:
+      axisVector = [0.0, 0.0, 1.0];
+      break;
+  }
+
+  var amount = duration / slowDownFactor;
+  if (direction == RotationDirection.negative) {
+      amount = amount * (-1.0);
+  }
+  mat4.rotate(mvpMatrix, amount, axisVector);
+}
 
 /*
  * Creates the drawScene and keyHandler closures for each effect
@@ -118,10 +191,17 @@ function mesh(n) {
  *   http://stackoverflow.com/questions/111102/how-do-javascript-closures-work
  */
 function createClosures(canvas, i) {
+    var startTime = (new Date()).getTime();
     var gl, squareVertexPositionBuffer, shaderProgram,
         mvpMatrix = mat4.create(),
         normalMatrix = mat3.create(),
-        time = 0.0;
+        lastTime = startTime,
+        keyValues = { up:     { upTime: startTime, downTime: false, state: KeyState.up },
+                     down:    { upTime: startTime, downTime: false, state: KeyState.up },
+                     left:    { upTime: startTime, downTime: false, state: KeyState.up },
+                     right:   { upTime: startTime, downTime: false, state: KeyState.up },
+                     zoomIn:  { upTime: startTime, downTime: false, state: KeyState.up },
+                     zoomOut: { upTime: startTime, downTime: false, state: KeyState.up }};
 
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
@@ -141,6 +221,8 @@ function createClosures(canvas, i) {
     gl.enable(gl.DEPTH_TEST);
 
     var dsc = function () {
+      var time = (new Date()).getTime() - startTime;
+
       gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -150,41 +232,58 @@ function createClosures(canvas, i) {
       gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
       gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-      time += 1.0 / (interval * 4);
-      gl.uniform1f(shaderProgram.timeUniform, time);
+      rotateAndZoomView(lastTime, time, keyValues, mvpMatrix);
+      lastTime = time;
+
+      gl.uniform1f(shaderProgram.timeUniform, time / slowDownFactor);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
     }
 
-    var khc = function keyHandler(e) {
-	if (e.charCode == 119) { /* 119 = W */
-        mat4.rotate(mvpMatrix,  0.05, [1.0, 0.0, 0.0]);
-      }
+    var kdhc = function keyDownHandler(e) {
+        keyHandle(e, keyValues.up,      87, KeyState.down); // W = 87;
+        keyHandle(e, keyValues.left,    65, KeyState.down); // A = 65;
+        keyHandle(e, keyValues.down,    83, KeyState.down); // S = 83;
+        keyHandle(e, keyValues.right,   68, KeyState.down); // D = 68;
 
-      if (e.charCode == 115) { /* 115 = S */
-        mat4.rotate(mvpMatrix, -0.05, [1.0, 0.0, 0.0]);
-      }
-      if (e.charCode == 97) { /* 97 = A */
-        mat4.rotate(mvpMatrix,   0.05, [0.0, 1.0, 0.0]);
-      }
-      if (e.charCode == 100) { /* 100 = D */
-        mat4.rotate(mvpMatrix, -0.05, [0.0, 1.0, 0.0]);
-      }
-      if (e.charCode == 113) { /* 100 = Q */
-        mat4.translate(mvpMatrix, [0.0, 0.0, 0.05]);
-      }
-      if (e.charCode == 122) { /* 100 = Z */
-        mat4.translate(mvpMatrix, [0.0, 0.0, -0.05]);
-      }
+        keyHandle(e, keyValues.zoomIn,  81, KeyState.down); // Q = 81;
+        keyHandle(e, keyValues.zoomOut, 90, KeyState.down); // Z = 90;
     };
 
-    return { drawSceneClosure: dsc, keyHandlerClosure: khc };
+    var kuhc = function keyUpHandler(e) {
+        keyHandle(e, keyValues.up,      87, KeyState.up); // W = 87;
+        keyHandle(e, keyValues.left,    65, KeyState.up); // A = 65;
+        keyHandle(e, keyValues.down,    83, KeyState.up); // S = 83;
+        keyHandle(e, keyValues.right,   68, KeyState.up); // D = 68;
+
+        keyHandle(e, keyValues.zoomIn,  81, KeyState.up); // Q = 81;
+        keyHandle(e, keyValues.zoomOut, 90, KeyState.up); // Z = 90;
+    };
+
+    return { drawSceneClosure: dsc, keyDownHandlerClosure: kdhc, keyUpHandlerClosure: kuhc };
+}
+
+/* Modifies values parameter */
+function keyHandle(e, values, keyCode, keyDirection) {
+  var opposite, key;
+  if (keyDirection == KeyState.up) {
+    opposite = KeyState.down;
+    key = "upTime";
+  } else {
+    opposite = KeyState.up;
+    key = "downTime";
+  }
+
+  if (e.keyCode == keyCode && values.state == opposite) {
+     values[key] = (new Date()).getTime();
+     values.state = keyDirection;
+  }
 }
 
 function webGLStart() {
     $(".playspace-canvas").each(function(i) {
-        var closures = createClosures(this, i);
-        setInterval(closures.drawSceneClosure, interval);
-	console.log($(this));
-	$(this).keypress(closures.keyHandlerClosure);
+      var closures = createClosures(this, i);
+      setInterval(closures.drawSceneClosure, interval);
+      $(this).keydown(closures.keyDownHandlerClosure);
+      $(this).keyup(closures.keyUpHandlerClosure)
     });
 }
