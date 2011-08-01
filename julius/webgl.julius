@@ -2,9 +2,18 @@
 var interval = 15; /* milliseconds between frames */
 var meshSize = 150; /* Number of squares in the mesh. Number of triangles is twice this */
 var slowDownFactor = 1000.0; /* Time since start (in milliseconds) is divided by this value */
-var KeyState = { up: 0, down:  1 };
-var Axis = { x: 0, y: 1, z: 2};
+var KeyState = { up: 0, down:  1 }; /* enumeration */
+var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
 var RotationDirection = { positive: 0, negative: 1};
+
+/*
+ * Constant rotation speed is a degenerate case. Set initialVelocity to a non-zero value, and
+ * acceleration to 0.
+ */
+var initVelocity = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
+var acceleration = 5.0;  /* Acceleration. radians per second per second. (1/s^2) */
+var maxVelocity  = 10.0;
+var maxRotation  = maxVelocity * (interval / 1000.0);
 
 function initGL(canvas) {
     var gl;
@@ -122,68 +131,96 @@ function rotateAndZoomView(last, now, keyValues, mvpMatrix) {
   rotateAboutAxis(last, now, keyValues.right, RotationDirection.negative, Axis.y, mvpMatrix);
 }
 
+/*
+ * Returns (t_down - t_up) where:
+ * - t_up is the time the key was up between last and now.
+ * - t_down is the time the key was down betwen last and now.
+ *
+ * - values is the key values containing the upTime and the downTime.
+ */
 function getDuration(last, now, values) {
-    /* Did a keyDown happen this time around? */
-
     var keyDown = values.downTime >= last && values.downTime < now,
         keyUp   = values.upTime   >= last && values.upTime   < now,
-        duration;
+    t_down;
 
     if (keyDown && keyUp) {
         if (values.downTime < values.upTime) {
           // Case 1
           // |  D      U |
-          duration = values.upTime - values.downTime;
+          t_down = values.upTime - values.downTime;
         } else {
           // Case 2
           // | U      D |
-          duration = (now - values.downTime) + (values.upTime - last);
+          t_down = (now - values.downTime) + (values.upTime - last);
         }
     }
      // Case 3
      // |    U       |
-    if (keyDown && !keyUp) {
-      duration = values.upTime - last;
+    if (!keyDown && keyUp) {
+      t_down = values.upTime - last;
     }
 
     // Case 4
     // |     D      |
-    if (!keyDown && keyUp) {
-      duration = last - keyValue.up.downTime;
+    if (keyDown && !keyUp) {
+      t_down = now - values.downTime;
     }
 
+    // Case 5 & 6
     if (!keyDown && !keyUp) {
       if (values.state == KeyState.up) {
-        duration = 0;
+        t_down = 0;
       }
       if (values.state == KeyState.down) {
-        duration = now - last;
+        t_down = now - last;
       }
     }
+   /*  t_up == (now - last) - t_down;
+    *  t_down - t_up == t_down - ((now - last) - t_down)
+    *                == 2*t_down - (now - last)
+    *                == 2*t_down - now + last
+    */
+    var duration = (2*t_down - now + last);
     return duration;
 }
 
+function constrain(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
 function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
-  var duration = getDuration(last, now, values), axisVector, amount;
+  var duration = getDuration(last, now, values) / 1000.0, /* t is in seconds not milliseconds */
+    axisVector, amount, u = values.velocity;
+
 
   switch (axis) {
     case Axis.x:
-      axisVector = [1.0, 0.0, 0.0];
+      axisVector = [ mvpMatrix[0], mvpMatrix[4], mvpMatrix[8] ];
       break;
     case Axis.y:
-      axisVector = [0.0, 1.0, 0.0];
+      axisVector = [ mvpMatrix[1], mvpMatrix[5], mvpMatrix[9] ];
       break;
     case Axis.z:
-      axisVector = [0.0, 0.0, 1.0];
+      axisVector = [ mvpMatrix[2], mvpMatrix[6], mvpMatrix[10] ];
       break;
   }
 
-  var amount = duration / slowDownFactor;
+  var t    = Math.abs(duration);
+  var sign = (duration > 0) ? 1 : (-1);
+  var a    = acceleration * sign;
+
+  var amount      = constrain(u*t + 0.5*a*t*t, 0, maxRotation);
+
+  values.velocity = constrain(u + a*t, 0, maxVelocity);
+
   if (direction == RotationDirection.negative) {
-      amount = amount * (-1.0);
+    amount = amount * (-1.0);
   }
+
+
   mat4.rotate(mvpMatrix, amount, axisVector);
 }
+
 
 /*
  * Creates the drawScene and keyHandler closures for each effect
@@ -195,13 +232,15 @@ function createClosures(canvas, i) {
     var gl, squareVertexPositionBuffer, shaderProgram,
         mvpMatrix = mat4.create(),
         normalMatrix = mat3.create(),
-        lastTime = startTime,
-        keyValues = { up:     { upTime: startTime, downTime: false, state: KeyState.up },
-                     down:    { upTime: startTime, downTime: false, state: KeyState.up },
-                     left:    { upTime: startTime, downTime: false, state: KeyState.up },
-                     right:   { upTime: startTime, downTime: false, state: KeyState.up },
-                     zoomIn:  { upTime: startTime, downTime: false, state: KeyState.up },
-                     zoomOut: { upTime: startTime, downTime: false, state: KeyState.up }};
+        lastTime = false,
+        initValues = function() { return { upTime: startTime, downTime: false,
+				           velocity: initVelocity, state: KeyState.up } },
+        keyValues = { up:      initValues(),
+                      down:    initValues(),
+                      left:    initValues(),
+                      right:   initValues(),
+                      zoomIn:  initValues(),
+                      zoomOut: initValues() };
 
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
@@ -232,7 +271,7 @@ function createClosures(canvas, i) {
       gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
       gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-      rotateAndZoomView(lastTime, time, keyValues, mvpMatrix);
+      rotateAndZoomView(lastTime || time, time, keyValues, mvpMatrix);
       lastTime = time;
 
       gl.uniform1f(shaderProgram.timeUniform, time / slowDownFactor);
@@ -287,3 +326,36 @@ function webGLStart() {
       $(this).keyup(closures.keyUpHandlerClosure)
     });
 }
+
+/*
+ * We want, as far as possible, for our interactions (rotate, zoom) with the effects to be
+ * continuous. We cannot simply add a fixed amount to the rotation each time a key is pressed.
+ * It must be proportional to the amount of time the key is depressed. Another design choice is
+ * whether:
+ *
+ * 1. The rotation speed should be constant, or
+ *
+ * 2. it should accelerate to a maximum speed and then decellerate the moment the key has been
+ * released.
+ *
+ * Since 1 is simply a special case of 2, I've implemented 2. This is done as follows:
+ *
+ * - keydown/keyup events are recorded, setting a key-down/key-up time.
+ *
+ * - whenever a frame is about to be drawn we work out how long the key has been pressed since
+ *   the last frame was drawn. We update the velocity and acceleration appropriately using v =
+ *   u + a*t and s = u*t + 0.5*a*t^2 where u is initial velocity, v is final velocity, a is
+ *   acceleration (a constant), t is the time that passed.
+ *
+ */
+
+
+/* A bunch of things need to be done:
+
+a) Rotating about x and y axis is wrong. Should be rotating around the apparent x and y axes. This
+   depends on the current mvpMatrix.
+b) Friction is like the acceleration but it only applies itself in response to a velocity in a
+   particular direction.
+c) Need to start using vectors for everything. I hope the library is good for this.
+
+*/
