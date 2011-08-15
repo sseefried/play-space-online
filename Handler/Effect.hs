@@ -102,7 +102,7 @@ getEditEffectR name = do
       (_, form, encType, csrfHtml) <- runFormPost $ editFormlet effect
       defaultLayout $ do
         addWidget $(widgetFile "effects/edit")
---          addWidget $(widgetFile "effects/preview")
+        startWebGLScript
     Nothing            -> effectNotFound name
 
 postUpdateEffectR :: Text -> Handler RepHtml
@@ -116,17 +116,16 @@ updateEffect name = do
   userId <- requireAuthIdAndDeny
   mbResult <- runDB $ getBy (UniqueEffect userId name)
   case mbResult of
-     Just (key, effect') -> do
-       eu <- readEffectAndUser effect'
-       (res, form, encType, csrfHtml) <- runFormPost $ editFormlet effect'
+     Just (key, effect) -> do
+       (res, form, encType, csrfHtml) <- runFormPost $ editFormlet effect
        eResult <- case res of
          FormMissing   -> return (Left "Form is blank" :: Either Text EditParams)
          FormFailure _ -> return (Left $ "There were some problems with the form")
          FormSuccess params -> return (Right params)
        case eResult of
          Left info -> do
+           eu <- readEffectAndUser effect
            defaultLayout $ do
-             let effect = effect'
              addWidget $(widgetFile "effects/edit")
              addHtml $ information info
          Right params -> do
@@ -136,18 +135,18 @@ updateEffect name = do
            runDB $ replace key effect
            compileRes <- compileEffect key effect
            case compileRes of
-             (Left err) -> do
+             Left err -> do
                runDB $ replace key (effect {effectCompiles = False})
+               eu <- readEffectAndUser effect
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
                  addHtml . information $ T.pack err
---                 addWidget $(widgetFile "effects/preview")
-             (Right ()) -> do
+             Right effect -> do
+               eu <- readEffectAndUser effect
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
                  startWebGLScript
---                 addWidget $(widgetFile "effects/preview")
-     Nothing -> error "die die die"-- FIXME: Need to handle this gracefully.
+     Nothing -> defaultLayout $ addWidget $(widgetFile "effects/not_found")
 
 
 deleteDeleteEffectR :: Text -> Handler RepHtml

@@ -21,31 +21,32 @@ import Shady.CompileE
 import Foundation
 import Handler.UnsafeText
 
--- | Compile the effect code. Return either the path to the compiled GLSL program (Right) or
---   the compiler error (Left).
+-- | Compile the effect code. Return either the @Effect@ or a compiler error (Left).
 --
-compileEffect :: Key Effect -> Effect -> Handler (Either String ())
+compileEffect :: Key Effect -> Effect -> Handler (Either String Effect)
 compileEffect key effect = do
   foundation <- getYesod
   (path, h) <- liftIO mkTemp
   liftIO $ ((hPutStrLn h) . T.unpack . effectCodeWrapper . indent $ effectCode effect) >> hClose h
   -- We need a unique name for the effect that we will temporarily load into memory.
   -- This is, after all, a web server serving multiple clients.
-  let moduleExt = takeBaseName path
-      moduleName = moduleExt
-      effectName = map toLower moduleExt
-  res <- liftIO $ Plugins.make path [ "-DMODULE_NAME=" ++ moduleName
-                                    , "-DEFFECT_NAME=" ++ effectName ]
+  let modulExt = takeBaseName path
+      modulName = modulExt
+      name = map toLower modulExt
+  res <- liftIO $ Plugins.make path [ "-DMODULE_NAME=" ++ modulName
+                                    , "-DEFFECT_NAME=" ++ name ]
   case res of
      MakeSuccess _  objectFile -> do
-       mbStatus <- liftIO $ Plugins.load objectFile [] [] effectName
+       mbStatus <- liftIO $ Plugins.load objectFile [] [] name
        case mbStatus of
          LoadSuccess modul (GLSL vertexShader fragmentShader _ _) -> do
-            runDB $ replace key (effect { effectCompiles = True
-                                , effectFragShaderCode = Just . addShaderHeaders $ fragmentShader
-                                , effectVertShaderCode = Just . addShaderHeaders $ vertexShader })
+            let newEffect =
+                  effect { effectCompiles = True
+                         , effectFragShaderCode = Just . addShaderHeaders $ fragmentShader
+                         , effectVertShaderCode = Just . addShaderHeaders $ vertexShader }
+            runDB $ replace key newEffect
             liftIO $ Plugins.unload modul
-            return (Right ())
+            return (Right newEffect)
          LoadFailure msg -> return (Left . concat $ intersperse "\n" msg)
        -- Load the plugin, get the code, update the effect, unload the effect object.
      MakeFailure errors        -> return (Left (concat $ intersperse "\n" errors))
