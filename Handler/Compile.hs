@@ -25,31 +25,70 @@ import Handler.UnsafeText
 --
 compileEffect :: Key Effect -> Effect -> Handler (Either String Effect)
 compileEffect key effect = do
-  foundation <- getYesod
-  (path, h) <- liftIO mkTemp
-  liftIO $ ((hPutStrLn h) . T.unpack . effectCodeWrapper . indent $ effectCode effect) >> hClose h
-  -- We need a unique name for the effect that we will temporarily load into memory.
-  -- This is, after all, a web server serving multiple clients.
-  let modulExt = takeBaseName path
-      modulName = modulExt
-      name = map toLower modulExt
+  path              <- writeEffectFileToTemp $ effectCode effect
+  (res, name) <- makeEffect path
+  case res of
+     MakeSuccess _  objectFile -> loadAndUpdateEffect objectFile name
+     MakeFailure errors        -> return (Left $ formatErrors errors)
+  where
+    formatErrors errors = concat $ intersperse "\n" errors
+
+    --
+    -- Load the plugin, get the code, update the effect, unload the effect object.
+    --
+    loadAndUpdateEffect :: String -> String -> Handler (Either String Effect)
+    loadAndUpdateEffect objectFile name = do
+      mbStatus <- liftIO $ Plugins.load objectFile [] [] name
+      case mbStatus of
+        LoadSuccess modul glsl -> do
+          effect' <- updateAndReturnEffect glsl
+          liftIO $ Plugins.unload modul
+          return (Right effect')
+        LoadFailure errors -> return (Left $ formatErrors errors)
+
+    --
+    -- Given a GLSL object updates the effect in the database and returns it.
+    --
+    updateAndReturnEffect :: GLSL a b -> Handler Effect
+    updateAndReturnEffect (GLSL vertexShader fragmentShader _ _) = do
+      let newEffect =
+            effect { effectCompiles = True
+                   , effectFragShaderCode = Just . addShaderHeaders $ fragmentShader
+                   , effectVertShaderCode = Just . addShaderHeaders $ vertexShader }
+      runDB $ replace key newEffect
+      return newEffect
+
+
+--
+-- Given the path to a temporary file which contains the effect code,
+-- compiles it and returns @(makeStatus, name)@ where
+-- @name@ is the unique name of the effect. 
+--
+-- The @name@ is as unique as the temporary file's name (which is assumed
+-- to be globally unique to the file system).
+--
+makeEffect :: String -> Handler (MakeStatus, String)
+makeEffect path = do
+  let (modulExt, modulName, name) = getNames path
   res <- liftIO $ Plugins.make path [ "-DMODULE_NAME=" ++ modulName
                                     , "-DEFFECT_NAME=" ++ name ]
-  case res of
-     MakeSuccess _  objectFile -> do
-       mbStatus <- liftIO $ Plugins.load objectFile [] [] name
-       case mbStatus of
-         LoadSuccess modul (GLSL vertexShader fragmentShader _ _) -> do
-            let newEffect =
-                  effect { effectCompiles = True
-                         , effectFragShaderCode = Just . addShaderHeaders $ fragmentShader
-                         , effectVertShaderCode = Just . addShaderHeaders $ vertexShader }
-            runDB $ replace key newEffect
-            liftIO $ Plugins.unload modul
-            return (Right newEffect)
-         LoadFailure msg -> return (Left . concat $ intersperse "\n" msg)
-       -- Load the plugin, get the code, update the effect, unload the effect object.
-     MakeFailure errors        -> return (Left (concat $ intersperse "\n" errors))
+  return (res, name)
+  where
+    getNames :: String -> (String, String, String)
+    getNames path =
+      let modulExt = takeBaseName path
+          modulName = modulExt
+          name = map toLower modulExt
+      in (modulExt, modulName, name)
+
+--
+-- Takes some effect code, wraps it in some boilerplate, and writes it out to a handle.
+--
+writeEffectFileToTemp :: Text -> Handler FilePath
+writeEffectFileToTemp text = do
+  (path, h) <- liftIO mkTemp
+  liftIO $ ((hPutStrLn h) . T.unpack . effectCodeWrapper . indent $ text) >> hClose h
+  return path
   where
     indent :: Text -> Text
     indent = T.concat . intersperse "\n" . map ("    " `T.append`) . T.lines
