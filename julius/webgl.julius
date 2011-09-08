@@ -6,10 +6,6 @@ var KeyState = { up: 0, down:  1 }; /* enumeration */
 var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
 var RotationDirection = { positive: 0, negative: 1};
 
-/*
- * Constant rotation speed is a degenerate case. Set initialVelocity to a non-zero value, and
- * acceleration to 0.
- */
 var initVelocity = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
 var acceleration = 5.0;  /* Acceleration. radians per second per second. (1/s^2) */
 var maxVelocity  = 10.0;
@@ -21,6 +17,7 @@ function initGL(canvas) {
         gl = canvas.getContext("experimental-webgl", { antialias: true } );
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
+        console.log(gl.getParameter(gl.DEPTH_RANGE));
         return gl;
     } catch (e) {
         return;
@@ -234,7 +231,7 @@ function createClosures(canvas, i) {
         normalMatrix = mat3.create(),
         lastTime = false,
         initValues = function() { return { upTime: startTime, downTime: false,
-				           velocity: initVelocity, state: KeyState.up } },
+                                           velocity: initVelocity, state: KeyState.up } },
         keyValues = { up:      initValues(),
                       down:    initValues(),
                       left:    initValues(),
@@ -245,7 +242,8 @@ function createClosures(canvas, i) {
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
 
-    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
+//    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
+//    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
     gl = initGL(canvas);
 
     if (!gl && i === 0) {
@@ -261,6 +259,7 @@ function createClosures(canvas, i) {
 
     var dsc = function () {
       var time = (new Date()).getTime() - startTime;
+
 
       gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
