@@ -1,5 +1,9 @@
-<canvas.playspace-canvas id="#{effectUnique effect user}" width="#{size}" height="#{size}" tabindex="1">
-<script.vertex-shader id="shader-vs-#{effectUnique effect user}" type="x-shader/x-vertex">
-  #{(maybe defaultVertShaderCode UnsafeText) $ effectVertShaderCode effect}
-<script.fragment-shader id="shader-fs-#{effectUnique effect user}" type="x-shader/x-fragment">
-  #{(maybe defaultFragShaderCode UnsafeText) $ effectFragShaderCode effect}
+<canvas.playspace-canvas id="#{uniquePrefix}" width="#{size}" height="#{size}" tabindex="1">
+<div class="shady-ui-widgets" id="#{uniquePrefix}">
+  <!-- A place for the widgets to go -->
+<div id="#{uniquePrefix}" class="shady-ui-spec" show-ui="#{showUI}" style="display:none;">
+    #{(maybe "[]" UnsafeText) $ effectUiJson effect}
+<script.vertex-shader id="shader-vs-#{uniquePrefix}" type="x-shader/x-vertex">
+  #{(maybe (defaultVertShaderCode uniquePrefix) UnsafeText) $ effectVertShaderCode effect}
+<script.fragment-shader id="shader-fs-#{uniquePrefix}" type="x-shader/x-fragment">
+  #{(maybe (defaultFragShaderCode uniquePrefix) UnsafeText) $ effectFragShaderCode effect}

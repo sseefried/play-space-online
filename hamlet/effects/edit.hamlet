@@ -2,7 +2,7 @@
   <strong> #{effectName effect}
 
 <div style="margin: auto; width: 150px;">
-  ^{effectThumbnail eu 150}
+  ^{effectThumbnail eu 150 False}
 
 <form.edit-effect enctype=#{encType} action=@{UpdateEffectR $ effectName effect} method=POST>
   #{csrfHtml}

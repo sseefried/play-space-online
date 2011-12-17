@@ -11,7 +11,7 @@
           <br>
           <h4> Created by #{userIdent $ snd eu}
           <br/>
-          ^{effectThumbnail eu 150}
+          ^{effectThumbnail eu 150 False}
           <span.controls>
             <a href=@{ShowEffectR (effectUser $ fst eu) (effectName $ fst eu)}> Show
             \ | #

@@ -8,13 +8,13 @@ import qualified Data.Text as T
 import Text.Printf
 import Control.Applicative
 import Data.Maybe
-import Data.String
 
 
 -- friends
 import Handler.Compile
 import Handler.UnsafeText
 import Foundation
+import Shady.CompileEffect.Json
 
 getListEffectsR :: Handler RepHtmlJson
 getListEffectsR = do
@@ -25,11 +25,11 @@ getListEffectsR = do
       canCancel = False
       info = information ""
       (width,height) = (150, 150)
-  let json = jsonList (map (jsonScalar . T.unpack . effectName) (map fst effectsAndUsers))
+  let json = jsonList []
   defaultLayoutJson (do
     addWidget $(widgetFile "effects/list")
     startWebGLScript
-    ) json
+    ) json -- FIXME: Find default json
 
 -- A simple form for creating a new effect.
 createFormlet :: Maybe Text ->Form s m Text
@@ -64,7 +64,8 @@ createEffect = do
         Nothing -> do
           -- FIXME: Will only succeed if someone else hasn't inserted a record in the mean time.
           -- Very unlikely but still possible.
-          effectKey <- runDB $ insert (Effect name userId defaultEffectCode Nothing Nothing True)
+          effectKey <- runDB $ insert (Effect name userId defaultEffectCode
+                                         Nothing Nothing Nothing True)
           -- FIXME: Very small chance it's been deleted in mean time
           (Just effect) <- runDB $ get effectKey
           showEffect effect
@@ -131,18 +132,19 @@ updateEffect name = do
          Right params -> do
            let effect = Effect (editParamsName params) userId
                                (unTextarea $ editParamsCode params)
-                               Nothing Nothing True
+                               Nothing Nothing Nothing True
            runDB $ replace key effect
-           compileRes <- compileEffect key effect
+           eu <- readEffectAndUser effect
+           compileRes <- compileEffect key eu
            case compileRes of
              Left err -> do
                runDB $ replace key (effect {effectCompiles = False})
-               eu <- readEffectAndUser effect
+               eu <- readEffectAndUser effect -- must re-read effect
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
                  addHtml . information $ T.pack err
              Right effect -> do
-               eu <- readEffectAndUser effect
+               eu <- readEffectAndUser effect -- must re-read effect
                defaultLayout $ do
                  addWidget $(widgetFile "effects/edit")
                  startWebGLScript
@@ -179,12 +181,6 @@ editFormlet effect = do
 data EditParams = EditParams { editParamsName :: Text
                              , editParamsCode :: Textarea }
 
-dasherize :: Text -> Text
-dasherize = T.toLower . (T.replace " " "-")
-
-effectUnique :: Effect -> User -> Text
-effectUnique effect user = dasherize $ effectName effect `T.append` "-" `T.append` userIdent user
-
 
 --
 -- Helpers
@@ -206,11 +202,17 @@ readEffectsAndUsers = do
     getUser :: Effect -> Handler (Maybe User)
     getUser effect = runDB $ get (effectUser effect)
 
-effectThumbnail :: (Effect,User) -> Int -> Widget ()
-effectThumbnail (effect,user) size = $(widgetFile "effects/thumbnail")
+effectThumbnail :: (Effect,User) -> Int -> Bool ->  Widget ()
+effectThumbnail (effect,user) size showTheUI = $(widgetFile "effects/thumbnail")
+  where
+    showUI :: Text
+    showUI = if showTheUI then "true" else "false"
+    uniquePrefix = effectUnique effect user
 
 startWebGLScript :: Widget ()
 startWebGLScript = addJulius [$julius| $(function() { webGLStart(); }); |]
+--  where
+--    uiJsonUnsafeText = UnsafeText . T.pack . show $ uiJson
 
 
 readEffectAndUser :: Effect -> Handler (Effect,User)

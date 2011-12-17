@@ -1,10 +1,10 @@
 /* -*-javascript-*- */
 var interval = 15; /* milliseconds between frames */
-var meshSize = 150; /* Number of squares in the mesh. Number of triangles is twice this */
+var meshSize = 500; /* Number of squares in the mesh. Number of triangles is twice this */
 var slowDownFactor = 1000.0; /* Time since start (in milliseconds) is divided by this value */
 var KeyState = { up: 0, down:  1 }; /* enumeration */
 var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
-var RotationDirection = { positive: 0, negative: 1};
+var RotationDirection = { positive: 0, negative: 1 };
 
 var initVelocity = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
 var acceleration = 5.0;  /* Acceleration. radians per second per second. (1/s^2) */
@@ -17,7 +17,6 @@ function initGL(canvas) {
         gl = canvas.getContext("experimental-webgl", { antialias: true } );
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
-        console.log(gl.getParameter(gl.DEPTH_RANGE));
         return gl;
     } catch (e) {
         return;
@@ -58,9 +57,34 @@ function getShader(gl, id) {
     return shader;
 }
 
+function addShadyUIs(name, gl, shaderProgram) {
+  var shady_ui_spec   = $('#' + name + '.shady-ui-spec');
+  var shady_ui_widgets = $('#' + name + '.shady-ui-widgets');
+
+  var shady_ui_specs = eval(shady_ui_spec.text());
+
+
+  var show_ui = (shady_ui_spec.attr('show-ui') || "true") == "true" ? true : false ;
+
+  var i=0;
+  for (i=0; i < shady_ui_specs.length; i++) {
+    Shady.addUI(shady_ui_widgets, shady_ui_specs[i], show_ui);
+  }
+
+  /* Link up uniforms */
+  shady_ui_widgets.find('.shady-ui').each(function() {
+    var uniform_name; 
+    if ( uniform_name = $(this).attr("glsl-name") ) {
+      shaderProgram[uniform_name] = gl.getUniformLocation(shaderProgram, uniform_name);
+    }
+  })
+
+}
+
 function initShaders(gl, name) {
-    var fragmentShader = getShader(gl, "shader-fs-" + name );
-    var vertexShader = getShader(gl, "shader-vs-" + name);
+    var fragmentShader = getShader(gl, "shader-fs-" + name);
+    var vertexShader   = getShader(gl, "shader-vs-" + name);
+
     var shaderProgram = gl.createProgram();
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
@@ -72,14 +96,17 @@ function initShaders(gl, name) {
 
     gl.useProgram(shaderProgram);
 
-    shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "uv_a");
+    shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "mesh_coords");
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
     shaderProgram.mvpMatrixUniform = gl.getUniformLocation(shaderProgram,
                                                            "ModelViewProjectionMatrix");
 
     shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
-    shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "time");
+
+    addShadyUIs(name, gl, shaderProgram);
+
+
     return shaderProgram;
 }
 
@@ -218,6 +245,27 @@ function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
   mat4.rotate(mvpMatrix, amount, axisVector);
 }
 
+function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
+  $('#' + canvas.id + ".shady-ui-widgets").find('.shady-ui').each(function(that) {
+     var uniform_name = $(this).attr("glsl-name");
+     var ui_type = $(this).attr("glsl-type");
+
+     if ( uniform_name && ui_type ) {
+       switch (ui_type) {
+         case "time":
+           gl.uniform1f(shaderProgram[uniform_name], time / slowDownFactor);
+           break;
+         case "float":
+           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+           break;
+         case "int":
+           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+           break;
+
+       }
+     }
+  });
+}
 
 /*
  * Creates the drawScene and keyHandler closures for each effect
@@ -247,7 +295,7 @@ function createClosures(canvas, i) {
     gl = initGL(canvas);
 
     if (!gl && i === 0) {
-      alert("Could not initialise WebGL, sorry :-(");
+      alert("Could not initialise WebGL, sorry");
       return;
     } else if (!gl) {
       return;
@@ -273,7 +321,9 @@ function createClosures(canvas, i) {
       rotateAndZoomView(lastTime || time, time, keyValues, mvpMatrix);
       lastTime = time;
 
-      gl.uniform1f(shaderProgram.timeUniform, time / slowDownFactor);
+      setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
+
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
     }
 
@@ -322,7 +372,7 @@ function webGLStart() {
       var closures = createClosures(this, i);
       setInterval(closures.drawSceneClosure, interval);
       $(this).keydown(closures.keyDownHandlerClosure);
-      $(this).keyup(closures.keyUpHandlerClosure)
+      $(this).keyup(closures.keyUpHandlerClosure);
     });
 }
 

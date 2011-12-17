@@ -4,7 +4,7 @@
 
 <h1> Effect / #
   <strong> #{effectName effect}
-^{effectThumbnail eu 600}
+^{effectThumbnail eu 600 True}
 <p>Use <strong>W</strong>, <strong>A</strong>, <strong>S</strong> and <strong>D</strong> #
    to rotate.</p>
 <p>Use <strong>Q</strong> and <strong>Z</strong> to zoom.</p>

@@ -1,0 +1,123 @@
+var Shady = (function() {
+  
+  $ = jQuery; // Set $ to be jQuery
+
+  /* OpenGL will _pull_ from user interface items not the other way around.
+     Thus each of these user interface items must have an name and type so that
+     the WebGL code knows what to do with the value 
+
+     jQuery selectors to get this out are
+
+     $(".shady-ui-elem").each(function(e) {
+       e.attr('glsl-name');
+     });
+
+   */
+
+   function timeConstant(id, glsl_name) {
+     var e = $(id);
+     e.addClass("shady-ui");
+     e.attr("glsl-name", glsl_name);
+     e.attr("sort", "time");
+     e.attr("glsl-type", "time");
+   }
+
+   /*
+    *  A generic function to create various forms of slider.
+    */
+   function generic_slider(id, ui) {
+     var e         = $(id),
+         glsl_name = ui["name"] || "name",
+         title     = ui["title"] || "title",
+         min       = ui["min"] || 0,
+         value     = ui["value"] || min || 0,
+         max       = ui["max"] || 100,
+         ui_type   = ui["ui-type"] || "float",
+         step;
+
+     switch (ui["sort"] || "float_slider") {
+       case "float_slider": step = 1.0e-6; break;
+       case "float_slider_with_step": step = ui["step"]; break;
+       case "int_slider": step = 1.0; break;
+     }
+
+     // remove existing elem if there is one.
+     e.addClass("shady-ui");
+     e.attr("glsl-name", glsl_name);
+     e.attr("glsl-type", ui_type);
+     console.log(e.attr("glsl-type"));
+     e.empty(); // delete any children
+
+     // FIXME: Move styling out into CSS
+     e.append('<table style="width:100%"><tr>\
+               <td class="slider-title" style="width: 20%"></td>\
+               <td class="slider-min" style="width:20px; padding-right: 10px;"></td>\
+               <td><div class="shady-ui-elem"></div></td>\
+               <td class="slider-max" style="padding-left: 10px; width:20px"></td>\
+               <td style="width:1%"></td>\
+               <td class="slider-value" style="width:40px;"></td>\
+               </tr></table>\
+               ');
+     var elem = e.find('.shady-ui-elem').first();
+     e.find('.slider-title').prepend(title);
+     e.find('.slider-min').text(min);
+     e.find('.slider-max').text(max);
+
+     function set_value(value) {
+       var value_text = (value + "").substr(0,5);
+       e.attr("glsl-value", value);
+       e.find('.slider-value').text(value_text);
+     }
+
+     set_value(value);
+
+     function on_slide(event,that) {
+       set_value(that.value);
+     }
+
+     elem.slider({ animate: true, range: "min", step: step,
+                   min: min, max: max, value: value, slide: on_slide });
+   }
+
+   /*
+    * A UI that is hidden. Just contains a value which is immutable.
+    */
+  function hidden_ui(id, glsl_name, glsl_value, glsl_type) {
+    var e = $(id);
+    e.addClass("shady-ui");
+    e.attr("glsl-name", glsl_name);
+    e.attr("glsl-value", glsl_value);
+    e.attr("glsl-type", glsl_type);
+    e.empty(); // delete any children
+  }
+
+  function addUI(parent, ui, show_ui) {
+    // FIXME: Refactor
+    $(parent).append('<div id="' + ui["name"] + '" style="' +
+                     (show_ui ? '' : 'display: none;')  +'"></div>');
+    var id = "#" + ui["name"];
+
+    if (show_ui) {
+      switch (ui["sort"]) {
+        case 'float_slider':
+        case 'float_slider_with_step':
+        case 'int_slider': 
+          generic_slider(id, ui);
+          break;
+        case 'time':
+          timeConstant(id, ui["name"] || "name");
+          break;
+      }
+    } else {
+      console.log(ui["ui-type"]);
+      hidden_ui(id, ui["name"] || "name", ui["value"] || 0, ui["ui-type"] || "time");
+    }
+
+  }
+
+  /* Return the methods you want to give access to here */
+  return {
+    addUI: addUI
+  }
+
+})();
