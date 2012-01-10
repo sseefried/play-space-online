@@ -259,7 +259,7 @@ function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
            gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
            break;
          case "int":
-           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+gi           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
            break;
 
        }

@@ -3,7 +3,7 @@
    v2.0 | 20110126
    License: none (public domain)
 
-	Everyone likes an even playing field.
+   Everyone likes an even playing field.
 */
 
 html, body, div, span, applet, object, iframe,
@@ -19,35 +19,35 @@ article, aside, canvas, details, embed,
 figure, figcaption, footer, header, hgroup,
 menu, nav, output, ruby, section, summary,
 time, mark, audio, video {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-	vertical-align: baseline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
 }
 /* HTML5 display-role reset for older browsers */
 article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
-	display: block;
+  display: block;
 }
 body {
-	line-height: 1;
+  line-height: 1;
 }
 ol, ul {
-	list-style: none;
+  list-style: none;
 }
 blockquote, q {
-	quotes: none;
+  quotes: none;
 }
 blockquote:before, blockquote:after,
 q:before, q:after {
-	content: '';
-	content: none;
+  content: '';
+  content: none;
 }
 table {
-	border-collapse: collapse;
-	border-spacing: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
 }
 
 /** custom buttons **/
@@ -62,57 +62,57 @@ ul, li, ul li { margin: 0; padding: 0;}
 --------------------------------------------- */
 
 body {
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #333;
-	font-size: 62.5%;
-	background: #fff;
-	}
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #333;
+  font-size: 62.5%;
+  background: #fff;
+  }
 
 
-	/** fonts **/
+  /** fonts **/
 
-	h1 {
-  	font-size: 1.8em;
-  	line-height: 1.5em;
-  	font-weight: bold;
-  	}
+  h1 {
+    font-size: 1.8em;
+    line-height: 1.5em;
+    font-weight: bold;
+    }
   h1 strong {color: #666;}
 
   h1.title {
-  	font-weight: normal;
-  	line-height: 1.3;
-  	}
+    font-weight: normal;
+    line-height: 1.3;
+    }
   h1.compact {
-  	font-size: 1.36em;
-  	font-weight: normal;
-  	line-height: 1.3;
-  	color: #777;
-  	}
+    font-size: 1.36em;
+    font-weight: normal;
+    line-height: 1.3;
+    color: #777;
+    }
   h1.compact strong {
-  	color: #333;
-  	}
+    color: #333;
+    }
 
 
     h2 {
-    	margin: 12px 0 15px 0;
-    	font-size: 1.4em;
-    	line-height: 1;
-    	color: #333;
-    	font-weight: bold;
-    	}
+      margin: 12px 0 15px 0;
+      font-size: 1.4em;
+      line-height: 1;
+      color: #333;
+      font-weight: bold;
+      }
 
 /* links */
 
 a:link, a:visited, input {
-	color: #4083a9;
-	outline: none;
-	text-decoration: none;
-	}
+  color: #4083a9;
+  outline: none;
+  text-decoration: none;
+  }
 
 a:hover {
-	text-decoration: none;
-	color: #205f82;
-	}
+  text-decoration: none;
+  color: #205f82;
+  }
 
 input { font-size: 12px; margin: 0; padding: 0;}
 
@@ -120,18 +120,18 @@ input { font-size: 12px; margin: 0; padding: 0;}
 /** Page structure **/
 
 #wrap {
-	background: #f0f0f0;
-	}
+  background: #f0f0f0;
+  }
 #wrap-inner {
-	padding: 25px 0 30px 0;
-	}
+  padding: 25px 0 30px 0;
+  }
 #content {
-	position: relative;
-	width: 940px;
-	margin: 0 auto;
-	padding: 0;
-	font-size: 1.2em;
-	}
+  position: relative;
+  width: 940px;
+  margin: 0 auto;
+  padding: 0;
+  font-size: 1.2em;
+  }
 
 /** header **/
 
@@ -261,10 +261,10 @@ ul li .controls { clear: #4083a9;}
 
 /** Add Effect **/
 .add-effect label, .edit-effect label {  margin: 12px 0 15px 0;
-		     font-size: 1.4em;
-		     line-height: 1;
-		     color: #333;
-		     font-weight: bold;}
+         font-size: 1.4em;
+         line-height: 1;
+         color: #333;
+         font-weight: bold;}
 .add-effect { clear: both; margin-top: 20px; border-top: 2px solid #dadada;line-height: 35px;}
 .add-effect div.required, .add-effect div.special-button-container { display: inline;}
 .add-effect input { font-size: 1.6em; padding: 2px; color: #666; margin-right: 10px;}
@@ -347,3 +347,17 @@ ul li .controls { clear: #4083a9;}
 .errors { color: #333; font-weight: bold; }
 
 strong { font-weight: bold; }
+
+/* Code box */
+
+.code { font-family: courier; line-height: 16px; font-size: 14px;}
+.code {
+  border: 2px dashed #ccc;
+  white-space: pre-wrap;
+  padding: 15px; margin: 15px; background: #fff; overflow: auto;}
+
+.canvas-container {
+ margin: auto;
+ margin-top: 30px;
+ margin-bottom: 30px
+}

@@ -1,4 +1,5 @@
-<canvas.playspace-canvas id="#{uniquePrefix}" width="#{size}" height="#{size}" tabindex="1">
+<div.canvas-container style="width: #{size}px;">
+  <canvas.playspace-canvas id="#{uniquePrefix}" width="#{size}" height="#{size}" tabindex="1">
 <div class="shady-ui-widgets" id="#{uniquePrefix}">
   <!-- A place for the widgets to go -->
 <div id="#{uniquePrefix}" class="shady-ui-spec" show-ui="#{showUI}" style="display:none;">
