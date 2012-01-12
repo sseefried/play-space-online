@@ -177,8 +177,7 @@ function zoom(last, now, values, zoomDirection, zoomObj) {
   /* A zoomAmount of 1 means that the object as doubled/halved */
   var    zoomAmount = accelerate(accTime, maxZoomVelocity, values);
   zoomAmount *= (zoomDirection === ZoomDirection.in ? 1.0 : -1.0);
-  zoomObj.zoomValue += zoomAmount;
-
+  zoomObj.zoomValue *= 1+zoomAmount;
 }
 
 /*
