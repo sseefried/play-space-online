@@ -5,11 +5,12 @@ var slowDownFactor = 1000.0; /* Time since start (in milliseconds) is divided by
 var KeyState = { up: 0, down:  1 }; /* enumeration */
 var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
 var RotationDirection = { positive: 0, negative: 1 };
+var ZoomDirection = { in: 0, out: 1};
 
 var initVelocity = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
 var acceleration = 5.0;  /* Acceleration. radians per second per second. (1/s^2) */
 var maxVelocity  = 10.0;
-var maxRotation  = maxVelocity * (interval / 1000.0);
+var maxZoomVelocity = 4.0;
 
 function initGL(canvas) {
     var gl;
@@ -32,16 +33,16 @@ function getShader(gl, id) {
     var str = "";
     var k = shaderScript.firstChild;
     while (k) {
-        if (k.nodeType == 3) {
+        if (k.nodeType === 3) {
             str += k.textContent;
         }
         k = k.nextSibling;
     }
 
     var shader;
-    if (shaderScript.type == "x-shader/x-fragment") {
+    if (shaderScript.type === "x-shader/x-fragment") {
         shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (shaderScript.type == "x-shader/x-vertex") {
+    } else if (shaderScript.type === "x-shader/x-vertex") {
         shader = gl.createShader(gl.VERTEX_SHADER);
     } else {
         return null;
@@ -64,7 +65,7 @@ function addShadyUIs(name, gl, shaderProgram) {
   var shady_ui_specs = eval(shady_ui_spec.text());
 
 
-  var show_ui = (shady_ui_spec.attr('show-ui') || "true") == "true" ? true : false ;
+  var show_ui = (shady_ui_spec.attr('show-ui') || "true") === "true" ? true : false ;
 
   var i=0;
   for (i=0; i < shady_ui_specs.length; i++) {
@@ -99,10 +100,15 @@ function initShaders(gl, name) {
     shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "mesh_coords");
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+    /* 
+     * We add several properties to the shaderProgram object here. They are all
+     * GLSL uniform locations.
+     */
     shaderProgram.mvpMatrixUniform = gl.getUniformLocation(shaderProgram,
                                                            "ModelViewProjectionMatrix");
 
     shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
+    shaderProgram.zoomUniform = gl.getUniformLocation(shaderProgram, "zoom");
 
     addShadyUIs(name, gl, shaderProgram);
 
@@ -148,7 +154,7 @@ function mesh(n) {
     return a;
 }
 
-function rotateAndZoomView(last, now, keyValues, mvpMatrix) {
+function rotateView(last, now, keyValues, mvpMatrix) {
   rotateAboutAxis(last, now, keyValues.up,    RotationDirection.positive, Axis.x, mvpMatrix);
   rotateAboutAxis(last, now, keyValues.down,  RotationDirection.negative, Axis.x, mvpMatrix);
   rotateAboutAxis(last, now, keyValues.left,  RotationDirection.positive, Axis.y, mvpMatrix);
@@ -156,13 +162,41 @@ function rotateAndZoomView(last, now, keyValues, mvpMatrix) {
 }
 
 /*
+ *
+ * @zoomValue@ will be modified by this method.
+ *
+ */
+function zoomView(last, now, keyValues, zoomObj) {
+  zoom(last, now, keyValues.zoomIn, ZoomDirection.out, zoomObj);
+  zoom(last, now, keyValues.zoomOut, ZoomDirection.in, zoomObj);
+
+}
+
+function zoom(last, now, values, zoomDirection, zoomObj) {
+  var accTime = getAccelerateTime(last,now,values);
+  /* A zoomAmount of 1 means that the object as doubled/halved */
+  var    zoomAmount = accelerate(accTime, maxZoomVelocity, values);
+  zoomAmount *= (zoomDirection === ZoomDirection.in ? 1.0 : -1.0);
+  zoomObj.zoomValue += zoomAmount;
+
+}
+
+/*
+ * Returns the amount of time between @last@ and @now@ that an acceleration
+ * occurred.
+ *
  * Returns (t_down - t_up) where:
  * - t_up is the time the key was up between last and now.
  * - t_down is the time the key was down betwen last and now.
  *
- * - values is the key values containing the upTime and the downTime.
+ * This function can return a negative value! This means that t_up > t_down.
+ * This means that it is a declerration.
+ *
+ * Arguments:
+ * - @values@ is the key values containing the upTime and the downTime.
+ * - @last@ and @now@ are the boundaries of the time interval.
  */
-function getDuration(last, now, values) {
+function getAccelerateTime(last, now, values) {
     var keyDown = values.downTime >= last && values.downTime < now,
         keyUp   = values.upTime   >= last && values.upTime   < now,
     t_down;
@@ -192,30 +226,41 @@ function getDuration(last, now, values) {
 
     // Case 5 & 6
     if (!keyDown && !keyUp) {
-      if (values.state == KeyState.up) {
+      if (values.state === KeyState.up) {
         t_down = 0;
       }
-      if (values.state == KeyState.down) {
+      if (values.state === KeyState.down) {
         t_down = now - last;
       }
     }
-   /*  t_up == (now - last) - t_down;
-    *  t_down - t_up == t_down - ((now - last) - t_down)
-    *                == 2*t_down - (now - last)
-    *                == 2*t_down - now + last
+   /*  t_up === (now - last) - t_down;
+    *  t_down - t_up === t_down - ((now - last) - t_down)
+    *                === 2*t_down - (now - last)
+    *                === 2*t_down - now + last
     */
-    var duration = (2*t_down - now + last);
-    return duration;
+    var accTime = (2*t_down - now + last);
+    return accTime / 1000.0; // fraction of second
 }
 
 function constrain(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
-  var duration = getDuration(last, now, values) / 1000.0, /* t is in seconds not milliseconds */
-    axisVector, amount, u = values.velocity;
+function accelerate(accTime, maximumVelocity, values) {
+  var t    = Math.abs(accTime),
+      sign = (accTime > 0) ? 1 : (-1),
+      u    = values.velocity,
+      a    = acceleration * sign;
 
+  values.velocity = constrain(u + a*t, 0, maximumVelocity);
+  
+  return (u*t + 0.5*a*t*t);
+}
+
+function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
+  /* t is in seconds not milliseconds */
+  var accTime = getAccelerateTime(last, now, values), 
+      axisVector, amount;
 
   switch (axis) {
     case Axis.x:
@@ -229,18 +274,11 @@ function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
       break;
   }
 
-  var t    = Math.abs(duration);
-  var sign = (duration > 0) ? 1 : (-1);
-  var a    = acceleration * sign;
+  amount = accelerate(accTime, maxVelocity, values);
 
-  var amount      = constrain(u*t + 0.5*a*t*t, 0, maxRotation);
-
-  values.velocity = constrain(u + a*t, 0, maxVelocity);
-
-  if (direction == RotationDirection.negative) {
+  if (direction === RotationDirection.negative) {
     amount = amount * (-1.0);
   }
-
 
   mat4.rotate(mvpMatrix, amount, axisVector);
 }
@@ -259,7 +297,7 @@ function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
            gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
            break;
          case "int":
-gi           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
            break;
 
        }
@@ -277,9 +315,11 @@ function createClosures(canvas, i) {
     var gl, squareVertexPositionBuffer, shaderProgram,
         mvpMatrix = mat4.create(),
         normalMatrix = mat3.create(),
+        zoomObj = { zoomValue: 1.0 },
         lastTime = false,
         initValues = function() { return { upTime: startTime, downTime: false,
-                                           velocity: initVelocity, state: KeyState.up } },
+                                           velocity: initVelocity, 
+                                           state: KeyState.up } },
         keyValues = { up:      initValues(),
                       down:    initValues(),
                       left:    initValues(),
@@ -290,8 +330,6 @@ function createClosures(canvas, i) {
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
 
-//    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
-//    mat4.translate(mvpMatrix, [0.0, 0.0, -0.001]);
     gl = initGL(canvas);
 
     if (!gl && i === 0) {
@@ -305,6 +343,7 @@ function createClosures(canvas, i) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
+    /* dsc = display scene closure */
     var dsc = function () {
       var time = (new Date()).getTime() - startTime;
 
@@ -318,8 +357,13 @@ function createClosures(canvas, i) {
       gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
       gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-      rotateAndZoomView(lastTime || time, time, keyValues, mvpMatrix);
+      rotateView(lastTime || time, time, keyValues, mvpMatrix);
+      zoomView(lastTime || time, time, keyValues,   zoomObj);
       lastTime = time;
+
+      /* Set zoom uniform */
+      gl.uniform1f(shaderProgram.zoomUniform, zoomObj.zoomValue);
+
 
       setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
 
@@ -327,6 +371,7 @@ function createClosures(canvas, i) {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
     }
 
+    /* kdhc = key down handler closure */
     var kdhc = function keyDownHandler(e) {
         keyHandle(e, keyValues.up,      87, KeyState.down); // W = 87;
         keyHandle(e, keyValues.left,    65, KeyState.down); // A = 65;
@@ -337,6 +382,7 @@ function createClosures(canvas, i) {
         keyHandle(e, keyValues.zoomOut, 90, KeyState.down); // Z = 90;
     };
 
+    /* kuhc = key up handler closure */
     var kuhc = function keyUpHandler(e) {
         keyHandle(e, keyValues.up,      87, KeyState.up); // W = 87;
         keyHandle(e, keyValues.left,    65, KeyState.up); // A = 65;
@@ -353,7 +399,8 @@ function createClosures(canvas, i) {
 /* Modifies values parameter */
 function keyHandle(e, values, keyCode, keyDirection) {
   var opposite, key;
-  if (keyDirection == KeyState.up) {
+
+  if (keyDirection === KeyState.up) {
     opposite = KeyState.down;
     key = "upTime";
   } else {
@@ -361,7 +408,7 @@ function keyHandle(e, values, keyCode, keyDirection) {
     key = "downTime";
   }
 
-  if (e.keyCode == keyCode && values.state == opposite) {
+  if (e.keyCode === keyCode && values.state === opposite) {
      values[key] = (new Date()).getTime();
      values.state = keyDirection;
   }
