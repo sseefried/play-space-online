@@ -5,7 +5,7 @@ var slowDownFactor = 1000.0; /* Time since start (in milliseconds) is divided by
 var KeyState = { up: 0, down:  1 }; /* enumeration */
 var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
 var RotationDirection = { positive: 0, negative: 1 };
-var ZoomDirection = { in: 0, out: 1};
+var Direction = { positive: 0, negative: 1};
 
 var initVelocity = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
 var acceleration = 5.0;  /* Acceleration. radians per second per second. (1/s^2) */
@@ -109,6 +109,8 @@ function initShaders(gl, name) {
 
     shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
     shaderProgram.zoomUniform = gl.getUniformLocation(shaderProgram, "zoom");
+    shaderProgram.phiUniform = gl.getUniformLocation(shaderProgram, "phi");
+    shaderProgram.thetaUniform = gl.getUniformLocation(shaderProgram, "theta");
 
     addShadyUIs(name, gl, shaderProgram);
 
@@ -119,8 +121,7 @@ function initShaders(gl, name) {
 function initBuffers(gl) {
     var squareVertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-
-    vertices = mesh(meshSize);
+    vertices = mesh(meshSize,2.0);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
     squareVertexPositionBuffer.itemSize = 2;
     squareVertexPositionBuffer.numItems = vertices.length / 2 ;
@@ -129,22 +130,22 @@ function initBuffers(gl) {
 
 /* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
    to prevent this problem */
-function mesh(n) {
+function mesh(n,width) {
     var a = new Float32Array(2*(2*(n*(n+1))  + 2*(n-1)   ));
     var i, j, len = 0;
-    var delta = 2.0 / n + 0.000000000000001;
+    var delta = width / n + 0.000000000000001;
 
-    var x, y = -1.0;
+    var x, y = -(width/2.0);
     for (j = 0; j < n; j++, y+=delta) {
         if (j > 0) {
             /* Degenerate triangles */
-            a[len++] = 1.0; // x value
+            a[len++] = (width/2.0); // x value
             a[len++] = y; // y value
-            a[len++] = -1.0; // x value
+            a[len++] = -(width/2); // x value
             a[len++] = y; // y value
         }
 
-        for (i = 0, x = -1.0; i <= n; i++, x+=delta) {
+        for (i = 0, x = -(width/2); i <= n; i++, x+=delta) {
             a[len++] = x; // x value
             a[len++] = y; // y value
             a[len++] = x; // x value
@@ -154,30 +155,58 @@ function mesh(n) {
     return a;
 }
 
-function rotateView(last, now, keyValues, mvpMatrix) {
-  rotateAboutAxis(last, now, keyValues.up,    RotationDirection.positive, Axis.x, mvpMatrix);
-  rotateAboutAxis(last, now, keyValues.down,  RotationDirection.negative, Axis.x, mvpMatrix);
-  rotateAboutAxis(last, now, keyValues.left,  RotationDirection.positive, Axis.y, mvpMatrix);
-  rotateAboutAxis(last, now, keyValues.right, RotationDirection.negative, Axis.y, mvpMatrix);
+function rotateView(last, now, key_values, mvpMatrix) {
+  rotateAboutAxis(last, now, key_values.up,    RotationDirection.positive, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, key_values.down,  RotationDirection.negative, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, key_values.left,  RotationDirection.positive, Axis.y, mvpMatrix);
+  rotateAboutAxis(last, now, key_values.right, RotationDirection.negative, Axis.y, mvpMatrix);
 }
 
-/*
+
+/* 
+ * Returns the duration that the key was depressed during the time interval [last,now].
  *
- * @zoomValue@ will be modified by this method.
- *
+ * Expects @key_values@ to be an object with downTime and upTime fields 
  */
-function zoomView(last, now, keyValues, zoomObj) {
-  zoom(last, now, keyValues.zoomIn, ZoomDirection.out, zoomObj);
-  zoom(last, now, keyValues.zoomOut, ZoomDirection.in, zoomObj);
+function getDownDuration(last,now,key_values) {
+  var keyDown = key_values.downTime >= last && key_values.downTime < now,
+      keyUp   = key_values.upTime   >= last && key_values.upTime   < now,
+      t_down = 0;
 
-}
+  if (keyDown && keyUp) {
+     if (key_values.downTime < key_values.upTime) {
+       // Case 1
+       // |  D      U |
+       t_down = key_values.upTime - key_values.downTime;
+     } else {
+       // Case 2
+       // | U      D |
+       t_down = (now - key_values.downTime) + (key_values.upTime - last);
+     }
+  }
+  // Case 3
+  // |    U       |
+  if (!keyDown && keyUp) {
+    t_down = key_values.upTime - last;
+  }
 
-function zoom(last, now, values, zoomDirection, zoomObj) {
-  var accTime = getAccelerateTime(last,now,values);
-  /* A zoomAmount of 1 means that the object as doubled/halved */
-  var    zoomAmount = accelerate(accTime, maxZoomVelocity, values);
-  zoomAmount *= (zoomDirection === ZoomDirection.in ? 1.0 : -1.0);
-  zoomObj.zoomValue *= 1+zoomAmount;
+  // Case 4
+  // |     D      |
+  if (keyDown && !keyUp) {
+    t_down = now - key_values.downTime;
+  }
+
+  // Case 5 & 6
+  if (!keyDown && !keyUp) {
+    if (key_values.state === KeyState.up) {
+      t_down = 0;
+    }
+    if (key_values.state === KeyState.down) {
+      t_down = now - last;
+    }
+  }
+
+  return t_down;
 }
 
 /*
@@ -189,54 +218,15 @@ function zoom(last, now, values, zoomDirection, zoomObj) {
  * - t_down is the time the key was down betwen last and now.
  *
  * This function can return a negative value! This means that t_up > t_down.
- * This means that it is a declerration.
+ * This means that it is a decelaration.
  *
  * Arguments:
  * - @values@ is the key values containing the upTime and the downTime.
  * - @last@ and @now@ are the boundaries of the time interval.
  */
 function getAccelerateTime(last, now, values) {
-    var keyDown = values.downTime >= last && values.downTime < now,
-        keyUp   = values.upTime   >= last && values.upTime   < now,
-    t_down;
+    var t_down = getDownDuration(last,now,values);
 
-    if (keyDown && keyUp) {
-        if (values.downTime < values.upTime) {
-          // Case 1
-          // |  D      U |
-          t_down = values.upTime - values.downTime;
-        } else {
-          // Case 2
-          // | U      D |
-          t_down = (now - values.downTime) + (values.upTime - last);
-        }
-    }
-     // Case 3
-     // |    U       |
-    if (!keyDown && keyUp) {
-      t_down = values.upTime - last;
-    }
-
-    // Case 4
-    // |     D      |
-    if (keyDown && !keyUp) {
-      t_down = now - values.downTime;
-    }
-
-    // Case 5 & 6
-    if (!keyDown && !keyUp) {
-      if (values.state === KeyState.up) {
-        t_down = 0;
-      }
-      if (values.state === KeyState.down) {
-        t_down = now - last;
-      }
-    }
-   /*  t_up === (now - last) - t_down;
-    *  t_down - t_up === t_down - ((now - last) - t_down)
-    *                === 2*t_down - (now - last)
-    *                === 2*t_down - now + last
-    */
     var accTime = (2*t_down - now + last);
     return accTime / 1000.0; // fraction of second
 }
@@ -254,6 +244,27 @@ function accelerate(accTime, maximumVelocity, values) {
   values.velocity = constrain(u + a*t, 0, maximumVelocity);
   
   return (u*t + 0.5*a*t*t);
+}
+
+
+function acceleration_frame_handler(accel, drag_coefficient,duration,key_state,value) {
+  var p = (key_state.positive_key === KeyState.down ? 1.0 : 0.0),
+      n = (key_state.negative_key === KeyState.down ? 1.0 : 0.0),
+      direction = p - n;
+  var t  = duration/1000.0;         
+  
+  if (direction != 0) { console.log(t);}
+
+  var s0 = value.disp;
+
+  var u  = value.velocity;
+  var drag = drag_coefficient* Math.pow(Math.abs(u),0.5) *
+             (u >= 0 ? 1 : -1); /* Drag is proportional to velocity */
+  var a  = accel*direction - drag;
+  var v  = u + a*t;
+  var s  = s0 + u*t + 0.5*a*t*t;
+  var new_value_state = { disp: s, velocity: v };
+  return new_value_state;
 }
 
 function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
@@ -314,17 +325,15 @@ function createClosures(canvas, i) {
     var gl, squareVertexPositionBuffer, shaderProgram,
         mvpMatrix = mat4.create(),
         normalMatrix = mat3.create(),
-        zoomObj = { zoomValue: 1.0 },
         lastTime = false,
-        initValues = function() { return { upTime: startTime, downTime: false,
+        initValues = function() { return { upTime: startTime, downTime: 0,
                                            velocity: initVelocity, 
                                            state: KeyState.up } },
-        keyValues = { up:      initValues(),
+        key_values = { up:      initValues(),
                       down:    initValues(),
                       left:    initValues(),
-                      right:   initValues(),
-                      zoomIn:  initValues(),
-                      zoomOut: initValues() };
+                      right:   initValues() };
+
 
     mat4.identity(mvpMatrix);
     mat3.identity(normalMatrix);
@@ -342,6 +351,20 @@ function createClosures(canvas, i) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
+
+
+    var zoom_handlers = make_handlers(81 /*Q*/,90 /*Z*/, { disp: 0.0, velocity: 0.0},
+      function(duration,key_state,value) {
+        return acceleration_frame_handler(5.0,1.0,duration,key_state,value);
+      });
+
+    var angle_handler = function(duration,key_state,value) {
+      return acceleration_frame_handler(5.0,1.0,duration,key_state,value)
+    }
+
+    var phi_handlers   = make_handlers(87/*W*/,83/*S*/,{ disp: 0.0, velocity: 0.0 }, angle_handler);
+    var theta_handlers = make_handlers(68/*D*/,65/*A*/,{ disp: 0.0, velocity: 0.0 }, angle_handler);
+
     /* dsc = display scene closure */
     var dsc = function () {
       var time = (new Date()).getTime() - startTime;
@@ -356,47 +379,57 @@ function createClosures(canvas, i) {
       gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
       gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-      rotateView(lastTime || time, time, keyValues, mvpMatrix);
-      zoomView(lastTime || time, time, keyValues,   zoomObj);
-      lastTime = time;
+      rotateView(lastTime || time, time, key_values, mvpMatrix);
 
-      /* Set zoom uniform */
-      gl.uniform1f(shaderProgram.zoomUniform, zoomObj.zoomValue);
+      var z = zoom_handlers.frame_handler(lastTime || time, time).disp;
+      gl.uniform1f(shaderProgram.zoomUniform,z >= 0 ? z + 1 : 1/(1-z));
+
+      var theta = theta_handlers.frame_handler(lastTime || time, time).disp;
+      gl.uniform1f(shaderProgram.thetaUniform, theta);
+
+      var phi = phi_handlers.frame_handler(lastTime || time, time).disp;
+      gl.uniform1f(shaderProgram.phiUniform, phi);
 
 
       setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
 
-
+      /* Now draw the frame */
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+      lastTime = time;
     }
 
-    /* kdhc = key down handler closure */
-    var kdhc = function keyDownHandler(e) {
-        keyHandle(e, keyValues.up,      87, KeyState.down); // W = 87;
-        keyHandle(e, keyValues.left,    65, KeyState.down); // A = 65;
-        keyHandle(e, keyValues.down,    83, KeyState.down); // S = 83;
-        keyHandle(e, keyValues.right,   68, KeyState.down); // D = 68;
 
-        keyHandle(e, keyValues.zoomIn,  81, KeyState.down); // Q = 81;
-        keyHandle(e, keyValues.zoomOut, 90, KeyState.down); // Z = 90;
+    /* FIXME: Use newer key handler methodology */
+    var camera_rotation_key_down_handler = function(e) {
+      console.log("keycode = " + e.keyCode);
+        keyHandle(startTime, e, key_values.up,      89, KeyState.down); // Y = 89;
+        keyHandle(startTime, e, key_values.left,    71, KeyState.down); // G = 71;
+        keyHandle(startTime, e, key_values.down,    72, KeyState.down); // H = 72;
+        keyHandle(startTime, e, key_values.right,   74, KeyState.down); // J = 74;
     };
 
-    /* kuhc = key up handler closure */
-    var kuhc = function keyUpHandler(e) {
-        keyHandle(e, keyValues.up,      87, KeyState.up); // W = 87;
-        keyHandle(e, keyValues.left,    65, KeyState.up); // A = 65;
-        keyHandle(e, keyValues.down,    83, KeyState.up); // S = 83;
-        keyHandle(e, keyValues.right,   68, KeyState.up); // D = 68;
-
-        keyHandle(e, keyValues.zoomIn,  81, KeyState.up); // Q = 81;
-        keyHandle(e, keyValues.zoomOut, 90, KeyState.up); // Z = 90;
+    /* FIXME: Use newer key handler methodology */
+    var camera_rotation_key_up_handler = function(e) {
+        keyHandle(startTime, e, key_values.up,      89, KeyState.up); // W = 87;
+        keyHandle(startTime, e, key_values.left,    71, KeyState.up); // A = 65;
+        keyHandle(startTime, e, key_values.down,    72, KeyState.up); // S = 83;
+        keyHandle(startTime, e, key_values.right,   74, KeyState.up); // D = 68;
     };
 
-    return { drawSceneClosure: dsc, keyDownHandlerClosure: kdhc, keyUpHandlerClosure: kuhc };
+    /* Set the handlers for this canvas */
+    $(canvas).keyup(camera_rotation_key_down_handler);
+    $(canvas).keydown(camera_rotation_key_up_handler);    
+
+    [zoom_handlers, theta_handlers, phi_handlers].map(function(hs) {
+      $(canvas).keyup(hs.key_up_handler);
+      $(canvas).keydown(hs.key_down_handler);
+    });
+
+    setInterval(dsc, interval);
 }
 
 /* Modifies values parameter */
-function keyHandle(e, values, keyCode, keyDirection) {
+function keyHandle(startTime, e, values, keyCode, keyDirection) {
   var opposite, key;
 
   if (keyDirection === KeyState.up) {
@@ -408,17 +441,69 @@ function keyHandle(e, values, keyCode, keyDirection) {
   }
 
   if (e.keyCode === keyCode && values.state === opposite) {
-     values[key] = (new Date()).getTime();
+     values[key] = (new Date()).getTime() - startTime;
      values.state = keyDirection;
   }
 }
 
+/*
+ *  @make_handlers@ returns three handlers that all manipulate a shared
+ *  state. 
+ *
+ *  1. A key-down handler.
+ *  2. A key-up handler.
+ *  3. A frame handler. (Frame as in a frame of an animation.)
+ *
+ * The function @f@ is a value updating function. It takes a
+ * frame duration, the key states of the positive and negative keys in
+ * that frame, and object of form
+ *   { value: <current value>, velocity: <current velocity> }. 
+ * It should produce an object
+ *   { value: <value>, velocity: <velocity> }
+ * based on those parameters and return it.
+ * 
+ * The handlers returned should be used as follows:
+ *
+ * 1. The key-down and key-up handlers should be added to (not overwrite)
+ *    the key-down and key-up handlers for the canvas.
+ * 2. The frame handler, which takes a @last@ and @now@ time
+ *    (the endpoints of the frame) should be used to get the latest
+ *    value. (The internal state of the value is updated in the process.)
+ *    
+ */
+function make_handlers(positive_key_code, negative_key_code, init_value, f) {
+
+  /* Records time stamps when key was last up or down */
+  var key_state = { positive_key: KeyState.up, negative_key: KeyState.up },
+      value     = init_value;
+
+  /* 
+   * These closures refer to @key_values@ and @current_value@.
+   * The key handlers only do something if they key pressed has a 
+   * @keyCode@ equal to @key_code@ parameter above.
+   */
+  var down_handler  = function(e) {
+    if (e.keyCode == positive_key_code) { key_state.positive_key = KeyState.down; }
+    if (e.keyCode == negative_key_code) { key_state.negative_key = KeyState.down; }
+  };
+  var up_handler    = function(e) { 
+    if (e.keyCode == positive_key_code) { key_state.positive_key = KeyState.up; }
+    if (e.keyCode == negative_key_code) { key_state.negative_key = KeyState.up; }
+  };
+
+  var frame_handler = function(last,now) {
+    var duration = (now - last > 0 ? now - last : 0);
+    return (value = f(duration, key_state, value));
+  };
+
+  return { key_up_handler:   up_handler,
+           key_down_handler: down_handler,
+           frame_handler:    frame_handler };
+}
+
 function webGLStart() {
     $(".playspace-canvas").each(function(i) {
-      var closures = createClosures(this, i);
-      setInterval(closures.drawSceneClosure, interval);
-      $(this).keydown(closures.keyDownHandlerClosure);
-      $(this).keyup(closures.keyUpHandlerClosure);
+      createClosures(this, i);
     });
 }
 
