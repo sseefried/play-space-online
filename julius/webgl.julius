@@ -235,7 +235,7 @@ function constrain(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function accelerate(accTime, maximumVelocity, values) {
+function accelerate_it(accTime, maximumVelocity, values) {
   var t    = Math.abs(accTime),
       sign = (accTime > 0) ? 1 : (-1),
       u    = values.velocity,
@@ -247,13 +247,19 @@ function accelerate(accTime, maximumVelocity, values) {
 }
 
 
-function acceleration_frame_handler(accel, drag_coefficient,duration,key_state,value) {
-  var p = (key_state.positive_key === KeyState.down ? 1.0 : 0.0),
-      n = (key_state.negative_key === KeyState.down ? 1.0 : 0.0),
-      direction = p - n;
+function displacement_to_zoom_factor(z) {
+  return z >= 0 ? z + 1 : 1/(1-z);
+}
+
+/*
+ *
+ * @direction@ is either -1, 0, or 1.
+ * @value@ is of form { disp: <displacement>, velocity: <velocity> }
+ *
+ */
+function accelerate(direction, accel, drag_coefficient, duration, value) {
+
   var t  = duration/1000.0;         
-  
-  if (direction != 0) { console.log(t);}
 
   var s0 = value.disp;
 
@@ -284,7 +290,7 @@ function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
       break;
   }
 
-  amount = accelerate(accTime, maxVelocity, values);
+  amount = accelerate_it(accTime, maxVelocity, values);
 
   if (direction === RotationDirection.negative) {
     amount = amount * (-1.0);
@@ -351,19 +357,36 @@ function createClosures(canvas, i) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
+    var zoom_handlers = make_handlers([81 /*Q*/,90 /*Z*/], { disp: 0.0, velocity: 0.0},
+      function(duration,key_states,value) {
 
+        var direction = (key_states[90] === KeyState.down ? 1.0  : 0.0) +
+                        (key_states[81] === KeyState.down ? -1.0 : 0.0);
 
-    var zoom_handlers = make_handlers(81 /*Q*/,90 /*Z*/, { disp: 0.0, velocity: 0.0},
-      function(duration,key_state,value) {
-        return acceleration_frame_handler(5.0,1.0,duration,key_state,value);
+        return accelerate(direction,5.0,1.0,duration,value);
       });
 
-    var angle_handler = function(duration,key_state,value) {
-      return acceleration_frame_handler(5.0,1.0,duration,key_state,value)
-    }
+    var rotation_handlers   = 
+      make_handlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/],
+                   { phi_disp: 0.0, phi_velocity: 0.0,
+                     theta_disp: 0.0, theta_velocity: 0.0 }, 
+                     function(duration,key_states,value) {
+        var a = 5.0, drag_coeff = 1.0;
 
-    var phi_handlers   = make_handlers(87/*W*/,83/*S*/,{ disp: 0.0, velocity: 0.0 }, angle_handler);
-    var theta_handlers = make_handlers(68/*D*/,65/*A*/,{ disp: 0.0, velocity: 0.0 }, angle_handler);
+        var theta_dir = (key_states[68] === KeyState.down ? 1.0  : 0.0) + 
+                        (key_states[65] === KeyState.down ? -1.0 : 0.0),
+            phi_dir   = (key_states[87] === KeyState.down ? 1.0  : 0.0) + 
+                        (key_states[83] === KeyState.down ? -1.0 : 0.0),
+            theta_values = accelerate(theta_dir,a,drag_coeff,duration,
+                                      {disp:     value.theta_disp,
+                                       velocity: value.theta_velocity }),
+            phi_values = accelerate(phi_dir,a,drag_coeff,duration,
+                                    {disp:     value.phi_disp,
+                                     velocity: value.phi_velocity });
+
+        return({ theta_disp: theta_values.disp, theta_velocity: theta_values.velocity,
+                 phi_disp:   phi_values.disp,   phi_velocity: phi_values.velocity });
+    });
 
     /* dsc = display scene closure */
     var dsc = function () {
@@ -382,12 +405,12 @@ function createClosures(canvas, i) {
       rotateView(lastTime || time, time, key_values, mvpMatrix);
 
       var z = zoom_handlers.frame_handler(lastTime || time, time).disp;
-      gl.uniform1f(shaderProgram.zoomUniform,z >= 0 ? z + 1 : 1/(1-z));
+      gl.uniform1f(shaderProgram.zoomUniform,displacement_to_zoom_factor(z));
 
-      var theta = theta_handlers.frame_handler(lastTime || time, time).disp;
+      var theta = rotation_handlers.frame_handler(lastTime || time, time).theta_disp;
       gl.uniform1f(shaderProgram.thetaUniform, theta);
 
-      var phi = phi_handlers.frame_handler(lastTime || time, time).disp;
+      var phi = rotation_handlers.frame_handler(lastTime || time, time).phi_disp;
       gl.uniform1f(shaderProgram.phiUniform, phi);
 
 
@@ -420,7 +443,7 @@ function createClosures(canvas, i) {
     $(canvas).keyup(camera_rotation_key_down_handler);
     $(canvas).keydown(camera_rotation_key_up_handler);    
 
-    [zoom_handlers, theta_handlers, phi_handlers].map(function(hs) {
+    [zoom_handlers, rotation_handlers].map(function(hs) {
       $(canvas).keyup(hs.key_up_handler);
       $(canvas).keydown(hs.key_down_handler);
     });
@@ -454,13 +477,13 @@ function keyHandle(startTime, e, values, keyCode, keyDirection) {
  *  2. A key-up handler.
  *  3. A frame handler. (Frame as in a frame of an animation.)
  *
- * The function @f@ is a value updating function. It takes a
- * frame duration, the key states of the positive and negative keys in
- * that frame, and object of form
- *   { value: <current value>, velocity: <current velocity> }. 
- * It should produce an object
- *   { value: <value>, velocity: <velocity> }
- * based on those parameters and return it.
+ * The function @f@ (@f(duration, key_states, value)@) 
+ * is a value updating function. It takes a
+ * frame duration, the key states of various keys in
+ * that frame, and object (of arbitrary form).
+ * 
+ * It should produce an object of that same form.
+ *  
  * 
  * The handlers returned should be used as follows:
  *
@@ -471,11 +494,13 @@ function keyHandle(startTime, e, values, keyCode, keyDirection) {
  *    value. (The internal state of the value is updated in the process.)
  *    
  */
-function make_handlers(positive_key_code, negative_key_code, init_value, f) {
+function make_handlers(key_codes, init_value, f) {
 
   /* Records time stamps when key was last up or down */
-  var key_state = { positive_key: KeyState.up, negative_key: KeyState.up },
-      value     = init_value;
+  var key_states = {}, value     = init_value;
+
+  /* Initialise key_states */
+  key_codes.map(function(key_code) { key_states[key_code]  = KeyState.up });
 
   /* 
    * These closures refer to @key_values@ and @current_value@.
@@ -483,17 +508,19 @@ function make_handlers(positive_key_code, negative_key_code, init_value, f) {
    * @keyCode@ equal to @key_code@ parameter above.
    */
   var down_handler  = function(e) {
-    if (e.keyCode == positive_key_code) { key_state.positive_key = KeyState.down; }
-    if (e.keyCode == negative_key_code) { key_state.negative_key = KeyState.down; }
+    key_codes.map(function(key_code) {
+      if (e.keyCode == key_code ) { key_states[key_code] = KeyState.down}
+    });
   };
   var up_handler    = function(e) { 
-    if (e.keyCode == positive_key_code) { key_state.positive_key = KeyState.up; }
-    if (e.keyCode == negative_key_code) { key_state.negative_key = KeyState.up; }
+    key_codes.map(function(key_code) {
+      if (e.keyCode == key_code ) { key_states[key_code] = KeyState.up}
+    });
   };
 
   var frame_handler = function(last,now) {
     var duration = (now - last > 0 ? now - last : 0);
-    return (value = f(duration, key_state, value));
+    return (value = f(duration, key_states, value));
   };
 
   return { key_up_handler:   up_handler,
@@ -506,36 +533,3 @@ function webGLStart() {
       createClosures(this, i);
     });
 }
-
-/*
- * We want, as far as possible, for our interactions (rotate, zoom) with the effects to be
- * continuous. We cannot simply add a fixed amount to the rotation each time a key is pressed.
- * It must be proportional to the amount of time the key is depressed. Another design choice is
- * whether:
- *
- * 1. The rotation speed should be constant, or
- *
- * 2. it should accelerate to a maximum speed and then decellerate the moment the key has been
- * released.
- *
- * Since 1 is simply a special case of 2, I've implemented 2. This is done as follows:
- *
- * - keydown/keyup events are recorded, setting a key-down/key-up time.
- *
- * - whenever a frame is about to be drawn we work out how long the key has been pressed since
- *   the last frame was drawn. We update the velocity and acceleration appropriately using v =
- *   u + a*t and s = u*t + 0.5*a*t^2 where u is initial velocity, v is final velocity, a is
- *   acceleration (a constant), t is the time that passed.
- *
- */
-
-
-/* A bunch of things need to be done:
-
-a) Rotating about x and y axis is wrong. Should be rotating around the apparent x and y axes. This
-   depends on the current mvpMatrix.
-b) Friction is like the acceleration but it only applies itself in response to a velocity in a
-   particular direction.
-c) Need to start using vectors for everything. I hope the library is good for this.
-
-*/
