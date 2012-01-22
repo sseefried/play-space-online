@@ -59,24 +59,24 @@ function getShader(gl, id) {
 }
 
 function addShadyUIs(name, gl, shaderProgram) {
-  var shady_ui_spec   = $('#' + name + '.shady-ui-spec');
-  var shady_ui_widgets = $('#' + name + '.shady-ui-widgets');
+  var shadyUISpec   = $('#' + name + '.shady-ui-spec');
+  var shadyUIWidgets = $('#' + name + '.shady-ui-widgets');
 
-  var shady_ui_specs = eval(shady_ui_spec.text());
+  var shadyUISpecs = eval(shadyUISpec.text());
 
 
-  var show_ui = (shady_ui_spec.attr('show-ui') || "true") === "true" ? true : false ;
+  var showUI = (shadyUISpec.attr('show-ui') || "true") === "true" ? true : false ;
 
   var i=0;
-  for (i=0; i < shady_ui_specs.length; i++) {
-    Shady.addUI(shady_ui_widgets, shady_ui_specs[i], show_ui);
+  for (i=0; i < shadyUISpecs.length; i++) {
+    Shady.addUI(shadyUIWidgets, shadyUISpecs[i], showUI);
   }
 
   /* Link up uniforms */
-  shady_ui_widgets.find('.shady-ui').each(function() {
-    var uniform_name; 
-    if ( uniform_name = $(this).attr("glsl-name") ) {
-      shaderProgram[uniform_name] = gl.getUniformLocation(shaderProgram, uniform_name);
+  shadyUIWidgets.find('.shady-ui').each(function() {
+    var uniformName; 
+    if ( uniformName = $(this).attr("glsl-name") ) {
+      shaderProgram[uniformName] = gl.getUniformLocation(shaderProgram, uniformName);
     }
   })
 
@@ -155,69 +155,69 @@ function mesh(n,width) {
     return a;
 }
 
-function rotateView(last, now, key_values, mvpMatrix) {
-  rotateAboutAxis(last, now, key_values.up,    RotationDirection.positive, Axis.x, mvpMatrix);
-  rotateAboutAxis(last, now, key_values.down,  RotationDirection.negative, Axis.x, mvpMatrix);
-  rotateAboutAxis(last, now, key_values.left,  RotationDirection.positive, Axis.y, mvpMatrix);
-  rotateAboutAxis(last, now, key_values.right, RotationDirection.negative, Axis.y, mvpMatrix);
+function rotateView(last, now, keyValues, mvpMatrix) {
+  rotateAboutAxis(last, now, keyValues.up,    RotationDirection.positive, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.down,  RotationDirection.negative, Axis.x, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.left,  RotationDirection.positive, Axis.y, mvpMatrix);
+  rotateAboutAxis(last, now, keyValues.right, RotationDirection.negative, Axis.y, mvpMatrix);
 }
 
 
 /* 
  * Returns the duration that the key was depressed during the time interval [last,now].
  *
- * Expects @key_values@ to be an object with downTime and upTime fields 
+ * Expects @keyValues@ to be an object with downTime and upTime fields 
  */
-function getDownDuration(last,now,key_values) {
-  var keyDown = key_values.downTime >= last && key_values.downTime < now,
-      keyUp   = key_values.upTime   >= last && key_values.upTime   < now,
-      t_down = 0;
+function getDownDuration(last,now,keyValues) {
+  var keyDown = keyValues.downTime >= last && keyValues.downTime < now,
+      keyUp   = keyValues.upTime   >= last && keyValues.upTime   < now,
+      tDown = 0;
 
   if (keyDown && keyUp) {
-     if (key_values.downTime < key_values.upTime) {
+     if (keyValues.downTime < keyValues.upTime) {
        // Case 1
        // |  D      U |
-       t_down = key_values.upTime - key_values.downTime;
+       tDown = keyValues.upTime - keyValues.downTime;
      } else {
        // Case 2
        // | U      D |
-       t_down = (now - key_values.downTime) + (key_values.upTime - last);
+       tDown = (now - keyValues.downTime) + (keyValues.upTime - last);
      }
   }
   // Case 3
   // |    U       |
   if (!keyDown && keyUp) {
-    t_down = key_values.upTime - last;
+    tDown = keyValues.upTime - last;
   }
 
   // Case 4
   // |     D      |
   if (keyDown && !keyUp) {
-    t_down = now - key_values.downTime;
+    tDown = now - keyValues.downTime;
   }
 
   // Case 5 & 6
   if (!keyDown && !keyUp) {
-    if (key_values.state === KeyState.up) {
-      t_down = 0;
+    if (keyValues.state === KeyState.up) {
+      tDown = 0;
     }
-    if (key_values.state === KeyState.down) {
-      t_down = now - last;
+    if (keyValues.state === KeyState.down) {
+      tDown = now - last;
     }
   }
 
-  return t_down;
+  return tDown;
 }
 
 /*
  * Returns the amount of time between @last@ and @now@ that an acceleration
  * occurred.
  *
- * Returns (t_down - t_up) where:
+ * Returns (tDown - t_up) where:
  * - t_up is the time the key was up between last and now.
- * - t_down is the time the key was down betwen last and now.
+ * - tDown is the time the key was down betwen last and now.
  *
- * This function can return a negative value! This means that t_up > t_down.
+ * This function can return a negative value! This means that t_up > tDown.
  * This means that it is a decelaration.
  *
  * Arguments:
@@ -225,9 +225,9 @@ function getDownDuration(last,now,key_values) {
  * - @last@ and @now@ are the boundaries of the time interval.
  */
 function getAccelerateTime(last, now, values) {
-    var t_down = getDownDuration(last,now,values);
+    var tDown = getDownDuration(last,now,values);
 
-    var accTime = (2*t_down - now + last);
+    var accTime = (2*tDown - now + last);
     return accTime / 1000.0; // fraction of second
 }
 
@@ -235,7 +235,7 @@ function constrain(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function accelerate_it(accTime, maximumVelocity, values) {
+function acclerateIt(accTime, maximumVelocity, values) {
   var t    = Math.abs(accTime),
       sign = (accTime > 0) ? 1 : (-1),
       u    = values.velocity,
@@ -247,7 +247,7 @@ function accelerate_it(accTime, maximumVelocity, values) {
 }
 
 
-function displacement_to_zoom_factor(z) {
+function displacementToZoomFactor(z) {
   return z >= 0 ? z + 1 : 1/(1-z);
 }
 
@@ -257,20 +257,20 @@ function displacement_to_zoom_factor(z) {
  * @value@ is of form { disp: <displacement>, velocity: <velocity> }
  *
  */
-function accelerate(direction, accel, drag_coefficient, duration, value) {
+function accelerate(direction, accel, dragCoefficient, duration, value) {
 
   var t  = duration/1000.0;         
 
   var s0 = value.disp;
 
   var u  = value.velocity;
-  var drag = drag_coefficient* Math.pow(Math.abs(u),0.5) *
+  var drag = dragCoefficient* Math.pow(Math.abs(u),0.5) *
              (u >= 0 ? 1 : -1); /* Drag is proportional to velocity */
   var a  = accel*direction - drag;
   var v  = u + a*t;
   var s  = s0 + u*t + 0.5*a*t*t;
-  var new_value_state = { disp: s, velocity: v };
-  return new_value_state;
+  var newValueState = { disp: s, velocity: v };
+  return newValueState;
 }
 
 function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
@@ -290,7 +290,7 @@ function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
       break;
   }
 
-  amount = accelerate_it(accTime, maxVelocity, values);
+  amount = acclerateIt(accTime, maxVelocity, values);
 
   if (direction === RotationDirection.negative) {
     amount = amount * (-1.0);
@@ -301,19 +301,19 @@ function rotateAboutAxis(last, now, values, direction, axis, mvpMatrix) {
 
 function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
   $('#' + canvas.id + ".shady-ui-widgets").find('.shady-ui').each(function(that) {
-     var uniform_name = $(this).attr("glsl-name");
-     var ui_type = $(this).attr("glsl-type");
+     var uniformName = $(this).attr("glsl-name");
+     var uiType = $(this).attr("glsl-type");
 
-     if ( uniform_name && ui_type ) {
-       switch (ui_type) {
+     if ( uniformName && uiType ) {
+       switch (uiType) {
          case "time":
-           gl.uniform1f(shaderProgram[uniform_name], time / slowDownFactor);
+           gl.uniform1f(shaderProgram[uniformName], time / slowDownFactor);
            break;
          case "float":
-           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+           gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
            break;
          case "int":
-           gl.uniform1f(shaderProgram[uniform_name], parseFloat($(this).attr("glsl-value")));
+           gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
            break;
 
        }
@@ -335,7 +335,7 @@ function createClosures(canvas, i) {
         initValues = function() { return { upTime: startTime, downTime: 0,
                                            velocity: initVelocity, 
                                            state: KeyState.up } },
-        key_values = { up:      initValues(),
+        keyValues = { up:      initValues(),
                       down:    initValues(),
                       left:    initValues(),
                       right:   initValues() };
@@ -357,35 +357,35 @@ function createClosures(canvas, i) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
-    var zoom_handlers = make_handlers([81 /*Q*/,90 /*Z*/], { disp: 0.0, velocity: 0.0},
-      function(duration,key_states,value) {
+    var zoomHandlers = makeHandlers([81 /*Q*/,90 /*Z*/], { disp: 0.0, velocity: 0.0},
+      function(duration,keyStates,value) {
 
-        var direction = (key_states[90] === KeyState.down ? 1.0  : 0.0) +
-                        (key_states[81] === KeyState.down ? -1.0 : 0.0);
+        var direction = (keyStates[90] === KeyState.down ? 1.0  : 0.0) +
+                        (keyStates[81] === KeyState.down ? -1.0 : 0.0);
 
         return accelerate(direction,5.0,1.0,duration,value);
       });
 
-    var rotation_handlers   = 
-      make_handlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/],
-                   { phi_disp: 0.0, phi_velocity: 0.0,
-                     theta_disp: 0.0, theta_velocity: 0.0 }, 
-                     function(duration,key_states,value) {
-        var a = 5.0, drag_coeff = 1.0;
+    var rotationHandlers   = 
+      makeHandlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/],
+                   { phiDisp: 0.0, phiVelocity: 0.0,
+                     thetaDisp: 0.0, thetaVelocity: 0.0 }, 
+                     function(duration,keyStates,value) {
+        var a = 5.0, dragCoeff = 2.0;
 
-        var theta_dir = (key_states[68] === KeyState.down ? 1.0  : 0.0) + 
-                        (key_states[65] === KeyState.down ? -1.0 : 0.0),
-            phi_dir   = (key_states[87] === KeyState.down ? 1.0  : 0.0) + 
-                        (key_states[83] === KeyState.down ? -1.0 : 0.0),
-            theta_values = accelerate(theta_dir,a,drag_coeff,duration,
-                                      {disp:     value.theta_disp,
-                                       velocity: value.theta_velocity }),
-            phi_values = accelerate(phi_dir,a,drag_coeff,duration,
-                                    {disp:     value.phi_disp,
-                                     velocity: value.phi_velocity });
+        var thetaDir = (keyStates[68] === KeyState.down ? 1.0  : 0.0) + 
+                        (keyStates[65] === KeyState.down ? -1.0 : 0.0),
+            phiDir   = (keyStates[87] === KeyState.down ? 1.0  : 0.0) + 
+                        (keyStates[83] === KeyState.down ? -1.0 : 0.0),
+            thetaValues = accelerate(thetaDir,a,dragCoeff,duration,
+                                      {disp:     value.thetaDisp,
+                                       velocity: value.thetaVelocity }),
+            phiValues = accelerate(phiDir,a,dragCoeff,duration,
+                                    {disp:     value.phiDisp,
+                                     velocity: value.phiVelocity });
 
-        return({ theta_disp: theta_values.disp, theta_velocity: theta_values.velocity,
-                 phi_disp:   phi_values.disp,   phi_velocity: phi_values.velocity });
+        return({ thetaDisp: thetaValues.disp, thetaVelocity: thetaValues.velocity,
+                 phiDisp:   phiValues.disp,   phiVelocity: phiValues.velocity });
     });
 
     /* dsc = display scene closure */
@@ -402,15 +402,15 @@ function createClosures(canvas, i) {
       gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
       gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-      rotateView(lastTime || time, time, key_values, mvpMatrix);
+      rotateView(lastTime || time, time, keyValues, mvpMatrix);
 
-      var z = zoom_handlers.frame_handler(lastTime || time, time).disp;
-      gl.uniform1f(shaderProgram.zoomUniform,displacement_to_zoom_factor(z));
+      var z = zoomHandlers.frameHandler(lastTime || time, time).disp;
+      gl.uniform1f(shaderProgram.zoomUniform,displacementToZoomFactor(z));
 
-      var theta = rotation_handlers.frame_handler(lastTime || time, time).theta_disp;
+      var theta = rotationHandlers.frameHandler(lastTime || time, time).thetaDisp;
       gl.uniform1f(shaderProgram.thetaUniform, theta);
 
-      var phi = rotation_handlers.frame_handler(lastTime || time, time).phi_disp;
+      var phi = rotationHandlers.frameHandler(lastTime || time, time).phiDisp;
       gl.uniform1f(shaderProgram.phiUniform, phi);
 
 
@@ -423,29 +423,29 @@ function createClosures(canvas, i) {
 
 
     /* FIXME: Use newer key handler methodology */
-    var camera_rotation_key_down_handler = function(e) {
+    var cameraRotationKeyDownHandler = function(e) {
       console.log("keycode = " + e.keyCode);
-        keyHandle(startTime, e, key_values.up,      89, KeyState.down); // Y = 89;
-        keyHandle(startTime, e, key_values.left,    71, KeyState.down); // G = 71;
-        keyHandle(startTime, e, key_values.down,    72, KeyState.down); // H = 72;
-        keyHandle(startTime, e, key_values.right,   74, KeyState.down); // J = 74;
+        keyHandle(startTime, e, keyValues.up,      89, KeyState.down); // Y = 89;
+        keyHandle(startTime, e, keyValues.left,    71, KeyState.down); // G = 71;
+        keyHandle(startTime, e, keyValues.down,    72, KeyState.down); // H = 72;
+        keyHandle(startTime, e, keyValues.right,   74, KeyState.down); // J = 74;
     };
 
     /* FIXME: Use newer key handler methodology */
-    var camera_rotation_key_up_handler = function(e) {
-        keyHandle(startTime, e, key_values.up,      89, KeyState.up); // W = 87;
-        keyHandle(startTime, e, key_values.left,    71, KeyState.up); // A = 65;
-        keyHandle(startTime, e, key_values.down,    72, KeyState.up); // S = 83;
-        keyHandle(startTime, e, key_values.right,   74, KeyState.up); // D = 68;
+    var cameraRotationKeyUpHandler = function(e) {
+        keyHandle(startTime, e, keyValues.up,      89, KeyState.up); // W = 87;
+        keyHandle(startTime, e, keyValues.left,    71, KeyState.up); // A = 65;
+        keyHandle(startTime, e, keyValues.down,    72, KeyState.up); // S = 83;
+        keyHandle(startTime, e, keyValues.right,   74, KeyState.up); // D = 68;
     };
 
     /* Set the handlers for this canvas */
-    $(canvas).keyup(camera_rotation_key_down_handler);
-    $(canvas).keydown(camera_rotation_key_up_handler);    
+    $(canvas).keyup(cameraRotationKeyDownHandler);
+    $(canvas).keydown(cameraRotationKeyUpHandler);    
 
-    [zoom_handlers, rotation_handlers].map(function(hs) {
-      $(canvas).keyup(hs.key_up_handler);
-      $(canvas).keydown(hs.key_down_handler);
+    [zoomHandlers, rotationHandlers].map(function(hs) {
+      $(canvas).keyup(hs.keyUpHandler);
+      $(canvas).keydown(hs.keyDownHandler);
     });
 
     setInterval(dsc, interval);
@@ -470,14 +470,14 @@ function keyHandle(startTime, e, values, keyCode, keyDirection) {
 }
 
 /*
- *  @make_handlers@ returns three handlers that all manipulate a shared
+ *  @makeHandlers@ returns three handlers that all manipulate a shared
  *  state. 
  *
  *  1. A key-down handler.
  *  2. A key-up handler.
  *  3. A frame handler. (Frame as in a frame of an animation.)
  *
- * The function @f@ (@f(duration, key_states, value)@) 
+ * The function @f@ (@f(duration, keyStates, value)@) 
  * is a value updating function. It takes a
  * frame duration, the key states of various keys in
  * that frame, and object (of arbitrary form).
@@ -494,38 +494,38 @@ function keyHandle(startTime, e, values, keyCode, keyDirection) {
  *    value. (The internal state of the value is updated in the process.)
  *    
  */
-function make_handlers(key_codes, init_value, f) {
+function makeHandlers(keyCodes, initValue, f) {
 
   /* Records time stamps when key was last up or down */
-  var key_states = {}, value     = init_value;
+  var keyStates = {}, value     = initValue;
 
-  /* Initialise key_states */
-  key_codes.map(function(key_code) { key_states[key_code]  = KeyState.up });
+  /* Initialise keyStates */
+  keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
 
   /* 
-   * These closures refer to @key_values@ and @current_value@.
+   * These closures refer to @keyValues@ and @currentValue@.
    * The key handlers only do something if they key pressed has a 
-   * @keyCode@ equal to @key_code@ parameter above.
+   * @keyCode@ equal to @keyCode@ parameter above.
    */
-  var down_handler  = function(e) {
-    key_codes.map(function(key_code) {
-      if (e.keyCode == key_code ) { key_states[key_code] = KeyState.down}
+  var downHandler  = function(e) {
+    keyCodes.map(function(keyCode) {
+      if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.down}
     });
   };
-  var up_handler    = function(e) { 
-    key_codes.map(function(key_code) {
-      if (e.keyCode == key_code ) { key_states[key_code] = KeyState.up}
+  var upHandler    = function(e) { 
+    keyCodes.map(function(keyCode) {
+      if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.up}
     });
   };
 
-  var frame_handler = function(last,now) {
+  var frameHandler = function(last,now) {
     var duration = (now - last > 0 ? now - last : 0);
-    return (value = f(duration, key_states, value));
+    return (value = f(duration, keyStates, value));
   };
 
-  return { key_up_handler:   up_handler,
-           key_down_handler: down_handler,
-           frame_handler:    frame_handler };
+  return { keyUpHandler:   upHandler,
+           keyDownHandler: downHandler,
+           frameHandler:    frameHandler };
 }
 
 function webGLStart() {
