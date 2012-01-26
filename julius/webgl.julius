@@ -317,23 +317,22 @@ var WebGL = (function() {
 
       var zoomHandlers = makeContinuousHandlers([90 /*Z*/,88 /*X*/], { disp: 0.0, velocity: 0.0},
         function(duration,keyStates,value) {
-
-          var direction = (keyStates[88] === KeyState.down ? 1.0  : 0.0) +
-                          (keyStates[90] === KeyState.down ? -1.0 : 0.0);
-
+          var direction = opposingKeysDir(keyStates, 88,90);
           return accelerate(direction,10.0,3.0,duration,value);
         });
 
+      var cameraRotationKeyCodes = [/*I*/ 73, /*J*/ 74, /*K*/ 75, /*L*/ 76];
       var cameraRotationHandlers =
-         makeContinuousHandlers([/*I*/ 73, /*J*/ 74, /*K*/ 75, /*L*/ 76],
+         makeContinuousHandlers(cameraRotationKeyCodes,
            { vertVelocity: 0.0,
              horizVelocity: 0.0,
              mvpMatrix: initialMVPMatrix },
            function(duration, keyStates, value) {
              var a = 10.0, dragCoeff = 2.0;
 
-             var vertDir = opposingKeysDir(keyStates, 73, 75),
-                 horizDir = opposingKeysDir(keyStates, 74, 76),
+             var kcs = cameraRotationKeyCodes;
+             var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
+                 horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
                  vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                           { disp: 0.0, velocity: value.vertVelocity }),
                  horizValues =  accelerate(horizDir,a,dragCoeff,duration,
@@ -347,16 +346,18 @@ var WebGL = (function() {
                        mvpMatrix:     value.mvpMatrix });
            });
 
+      var objectRotationKeyCodes = [87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/];
       var objectRotationHandlers =
-        makeContinuousHandlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/],
+        makeContinuousHandlers(objectRotationKeyCodes,
           { vertVelocity: 0.0,
             horizVelocity: 0.0,
             rotationMatrix: initialRotationMatrix },
           function(duration, keyStates, value) {
             var a = 10.0, dragCoeff = 2.0;
 
-            var vertDir =  opposingKeysDir(keyStates, 87, 83),
-                horizDir = opposingKeysDir(keyStates, 65, 68),
+            var kcs = objectRotationKeyCodes;
+            var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
+                horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
                 vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                          { disp: 0.0, velocity: value.vertVelocity }),
                 horizValues =  accelerate(horizDir,a,dragCoeff,duration,
@@ -370,13 +371,15 @@ var WebGL = (function() {
                    });
           });
 
-      var panHandlers = makeContinuousHandlers([/*T*/84,/*F*/70,/*G*/71,/*H*/72],
+      var panKeyCodes = [/*T*/84,/*F*/70,/*G*/71,/*H*/72];
+      var panHandlers = makeContinuousHandlers(panKeyCodes,
         { xDisp: 0.0, xVelocity: 0.0,
           yDisp: 0.0, yVelocity: 0.0 },
         function(duration, keyStates, value) {
           var a = 4.0, dragCoeff = 2.0;
-          var xDir = opposingKeysDir(keyStates, 72, 70),
-              yDir = opposingKeysDir(keyStates, 84, 71),
+          var kcs = panKeyCodes;
+          var xDir = opposingKeysDir(keyStates, kcs[3], kcs[1]),
+              yDir = opposingKeysDir(keyStates, kcs[0], kcs[2]),
               xValues = accelerate(xDir,a,dragCoeff,duration,
                                    { disp: value.xDisp, velocity: value.xVelocity }),
               yValues = accelerate(yDir,a,dragCoeff,duration,
