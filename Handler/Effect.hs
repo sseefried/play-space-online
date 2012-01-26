@@ -210,7 +210,7 @@ effectThumbnail (effect,user) size showTheUI = $(widgetFile "effects/thumbnail")
     uniquePrefix = effectUnique effect user
 
 startWebGLScript :: Widget ()
-startWebGLScript = addJulius [$julius| $(function() { webGLStart(); }); |]
+startWebGLScript = addJulius [$julius| $(function() { WebGL.start(); }); |]
 --  where
 --    uiJsonUnsafeText = UnsafeText . T.pack . show $ uiJson
 

@@ -1,498 +1,519 @@
-/* -*-javascript-*- */
-var INTERVAL = 15; /* milliseconds between frames */
-var MESH_SQUARES = 500; /* Number of squares in the mesh. Number of triangles is twice this */
-var SLOW_DOWN_FACTOR = 1000.0; /* Time since start (in milliseconds) is divided by this value */
-
-var INIT_VELOCITY = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
-var ACCELERATION = 5.0;     /* Acceleration. radians per second per second. (1/s^2) */
-var MAX_VELOCITY  = 10.0;
-var ITEM_SIZE = 2;          /* Number of items in each vertex of the mesh.
-                             * They are pairs in a plane so it is 2 */
-
-var INITIAL_MESH_WIDTH = 2.0; /* -1 to 1 on both axes */
-
-/*
- * Enumeration types
+/* "WebGL" is a Javascript "module" defined using Douglas Crockford's technique
+ * of returning an object containing functions you want to export. i.e.
+ *
+ *
+ *  var ModuleName = (function() { ... your code goes here;
+ *                                return(... object containing methods to export ... )})();
+ *
+ * By wrapping everything inside a function, Javascript's local
+ * scoping rules kick in (as long as all variables are declared with the 'var' keyword)
+ * and the code stays encapsulated.
  */
-var KeyState = { up: 0, down:  1 }; /* enumeration */
-var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
-var RotationDirection = { positive: 0, negative: 1 };
-var Direction = { positive: 0, negative: 1};
-
-function initGL(canvas) {
-    var gl;
-    try {
-        gl = canvas.getContext("experimental-webgl", { antialias: true } );
-        gl.viewportWidth = canvas.width;
-        gl.viewportHeight = canvas.height;
-        return gl;
-    } catch (e) {
-        return;
-    }
-}
-
-function getShader(gl, id) {
-    var shaderScript = document.getElementById(id);
-    if (!shaderScript) {
-        return null;
-    }
-
-    var str = "";
-    var k = shaderScript.firstChild;
-    while (k) {
-        if (k.nodeType === 3) {
-            str += k.textContent;
-        }
-        k = k.nextSibling;
-    }
-
-    var shader;
-    if (shaderScript.type === "x-shader/x-fragment") {
-        shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (shaderScript.type === "x-shader/x-vertex") {
-        shader = gl.createShader(gl.VERTEX_SHADER);
-    } else {
-        return null;
-    }
-
-    gl.shaderSource(shader, str);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        alert(gl.getShaderInfoLog(shader));
-        return null;
-    }
-    return shader;
-}
-
-function addShadyUIs(name, gl, shaderProgram) {
-  var shadyUISpec   = $('#' + name + '.shady-ui-spec');
-  var shadyUIWidgets = $('#' + name + '.shady-ui-widgets');
-
-  var shadyUISpecs = eval(shadyUISpec.text());
-
-
-  var showUI = (shadyUISpec.attr('show-ui') || "true") === "true" ? true : false ;
-
-  var i=0;
-  for (i=0; i < shadyUISpecs.length; i++) {
-    Shady.addUI(shadyUIWidgets, shadyUISpecs[i], showUI);
-  }
-
-  /* Link up uniforms */
-  shadyUIWidgets.find('.shady-ui').each(function() {
-    var uniformName;
-    if ( uniformName = $(this).attr("glsl-name") ) {
-      shaderProgram[uniformName] = gl.getUniformLocation(shaderProgram, uniformName);
-    }
-  })
-
-}
-
-function initShaders(gl, name) {
-    var fragmentShader = getShader(gl, "shader-fs-" + name);
-    var vertexShader   = getShader(gl, "shader-vs-" + name);
-
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert("Could not initialise shaders");
-    }
-
-    gl.useProgram(shaderProgram);
-
-    shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "meshCoords");
-    gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-    /*
-     * We add several properties to the shaderProgram object here.
-     * (You can do this with Javascript objects; just add 'em in there.)
-     * They are all GLSL uniform locations.
-     */
-    shaderProgram.mvpMatrixUniform    = gl.getUniformLocation(shaderProgram,
-                                                              "ModelViewProjectionMatrix");
-    shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
-    shaderProgram.zoomUniform         = gl.getUniformLocation(shaderProgram, "zoom");
-    shaderProgram.phiUniform          = gl.getUniformLocation(shaderProgram, "yzAngle");
-    shaderProgram.thetaUniform        = gl.getUniformLocation(shaderProgram, "xzAngle");
-    shaderProgram.psiUniform          = gl.getUniformLocation(shaderProgram, "xyAngle");
-    addShadyUIs(name, gl, shaderProgram);
-
-    return shaderProgram;
-}
-
-/* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
-   to prevent this problem */
-function mesh(n,width) {
-    var a = new Float32Array(2*(2*(n*(n+1))  + 2*(n-1)   ));
-    var i, j, len = 0;
-    var delta = width / n + 0.000000000000001;
-
-    var x, y = -(width/2.0);
-    for (j = 0; j < n; j++, y+=delta) {
-        if (j > 0) {
-            /* Degenerate triangles */
-            a[len++] = (width/2.0); // x value
-            a[len++] = y; // y value
-            a[len++] = -(width/2); // x value
-            a[len++] = y; // y value
-        }
-
-        for (i = 0, x = -(width/2); i <= n; i++, x+=delta) {
-            a[len++] = x; // x value
-            a[len++] = y; // y value
-            a[len++] = x; // x value
-            a[len++] = y+delta; // y value
-        }
-    }
-    return a;
-}
-
-/*
- * Turns a zoom displacement to a zoom factor. A zoom displacement has the following properties.
- *
- * 1. A displacement of zero is "no zoom".
- * 2. Positive zoom "zooms in".
- * 3. Negative zoom "zooms out".
- *
- * A zoom displacement of 1 means "zoom in by 100%"
- * and produces a zoom factor of 2.
- *
- * A zoom displacement of -1 means "zoom out by 100%"
- * and produces a zoom factor of 1/2
- *
- */
-function displacementToZoomFactor(z) {
-  return z >= 0 ? z + 1 : 1/(1-z);
-}
-
-/*
- *
- * @direction@ is either -1, 0, or 1.
- * @value@ is of form { disp: <displacement>, velocity: <velocity> }
- *
- */
-function accelerate(direction, accel, dragCoefficient, duration, value) {
-
-  var t  = duration/1000.0;
-
-  var s0 = value.disp;
-
-  var u  = value.velocity;
-  var drag = dragCoefficient* Math.pow(Math.abs(u),0.5) *
-             (u >= 0 ? 1 : -1); /* Drag is proportional to velocity */
-  var a  = accel*direction - drag;
-  var v  = u + a*t;
-  var s  = s0 + u*t + 0.5*a*t*t;
-  var newValueState = { disp: s, velocity: v };
-  return newValueState;
-}
-
-function rotateAboutAxis(amount, axis, mvpMatrix) {
-  /* t is in seconds not milliseconds */
-  var axisVector;
-
-  switch (axis) {
-    case Axis.x:
-      axisVector = [ mvpMatrix[0], mvpMatrix[4], mvpMatrix[8] ];
-      break;
-    case Axis.y:
-      axisVector = [ mvpMatrix[1], mvpMatrix[5], mvpMatrix[9] ];
-      break;
-    case Axis.z:
-      axisVector = [ mvpMatrix[2], mvpMatrix[6], mvpMatrix[10] ];
-      break;
-  }
-
-  mat4.rotate(mvpMatrix, amount, axisVector);
-}
-
-function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
-  $('#' + canvas.id + ".shady-ui-widgets").find('.shady-ui').each(function(that) {
-     var uniformName = $(this).attr("glsl-name");
-     var uiType = $(this).attr("glsl-type");
-
-     if ( uniformName && uiType ) {
-       switch (uiType) {
-         case "time":
-           gl.uniform1f(shaderProgram[uniformName], time / SLOW_DOWN_FACTOR);
-           break;
-         case "float":
-           gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
-           break;
-         case "int":
-           gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
-           break;
-
-       }
-     }
-  });
-}
-
-/*
- * Creates the drawScene and keyHandler closures for each effect
- * See this Stack Overflow post for more detail on closures:
- *   http://stackoverflow.com/questions/111102/how-do-javascript-closures-work
- */
-function createClosures(canvas, i) {
-    var startTime = (new Date()).getTime();
-    var gl, squareVertexPositionBuffer, shaderProgram,
-        initialMVPMatrix = mat4.create(),
-        normalMatrix = mat3.create(),
-        lastTime = false,
-        initValues = function() { return { upTime: startTime, downTime: 0,
-                                           velocity: INIT_VELOCITY,
-                                           state: KeyState.up } },
-        keyValues = { up:      initValues(),
-                      down:    initValues(),
-                      left:    initValues(),
-                      right:   initValues() };
-
-
-    mat4.identity(initialMVPMatrix);
-    mat3.identity(normalMatrix);
-
-    gl = initGL(canvas);
-
-    if (!gl && i === 0) {
-      alert("Could not initialise WebGL, sorry");
-      return;
-    } else if (!gl) {
-      return;
-    }
-
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.enable(gl.DEPTH_TEST);
-
-    shaderProgram = initShaders(gl, canvas.id);
-
-    /*
-     * Create and bind buffer. This can only be done once.
-     * You can change the data that the buffer points to with gl.bufferData
-     */
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-
-    var meshWidth = INITIAL_MESH_WIDTH;
-
-    var verticesObj = { vertices: [] }; // This object is modified by bindMeshToBuffer
-    bindMeshToBuffer(gl, verticesObj, shaderProgram.vertexPositionAttribute, meshWidth);
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-
-
-
-    /* Handlers to change the mesh size */
-    $(canvas).keypress(function(e) {
-      var decreaseKeys = [",","<"], increaseKeys = [".", ">"], changed = false;
-
-      if (decreaseKeys.some(function(s) { return(s.charCodeAt(0) == e.charCode);})) {
-        meshWidth /= 2;
-        changed = true;
-      }
-      if (increaseKeys.some(function(s) { return(s.charCodeAt(0) == e.charCode);})) {
-        meshWidth *= 2;
-        changed = true;
-      }
-      if (changed) { bindMeshToBuffer(gl, verticesObj,
-                                      shaderProgram.vertexPositionAttribute, meshWidth); }
-    })
-
-    var zoomHandlers = makeContinuousHandlers([90 /*Z*/,88 /*X*/], { disp: 0.0, velocity: 0.0},
-      function(duration,keyStates,value) {
-
-        var direction = (keyStates[88] === KeyState.down ? 1.0  : 0.0) +
-                        (keyStates[90] === KeyState.down ? -1.0 : 0.0);
-
-        return accelerate(direction,5.0,1.0,duration,value);
-      });
-
-    var cameraRotationHandlers =
-       makeContinuousHandlers([/*Y*/ 89, /*G*/ 71, /*H*/ 72, /*J*/ 74],
-         { vertVelocity: 0.0,
-           horizVelocity: 0.0,
-           mvpMatrix: initialMVPMatrix },
-         function(duration, keyStates, value) {
-           var a = 10.0, dragCoeff = 2.0;
-
-           var vertDir =  (keyStates[89] === KeyState.down ?  1.0 : 0.0) +
-                          (keyStates[72] === KeyState.down ? -1.0 : 0.0),
-               horizDir = (keyStates[71] === KeyState.down ?  1.0 : 0.0) +
-                          (keyStates[74] === KeyState.down ? -1.0 : 0.0),
-               vertValues =  accelerate(vertDir,a,dragCoeff,duration,
-                                        { disp: 0.0, velocity: value.vertVelocity }),
-               horizValues =  accelerate(horizDir,a,dragCoeff,duration,
-                                        { disp: 0.0, velocity: value.horizVelocity });
-               rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
-
-               rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
-
-               return({ vertVelocity:  vertValues.velocity,
-                        horizVelocity: horizValues.velocity,
-                        mvpMatrix:     value.mvpMatrix
-                      });
-         });
-
-    var objectRotationHandlers =
-      makeContinuousHandlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/, 81 /*Q*/, 69 /*E*/],
-                   { phiDisp:   0.0,   phiVelocity:   0.0,
-                     thetaDisp: 0.0,   thetaVelocity: 0.0,
-                     psiDisp:   0.0,   psiVelocity:   0.0 },
-                     function(duration,keyStates,value) {
-
-        var a = 5.0, dragCoeff = 2.0;
-
-        var thetaDir = (keyStates[68] === KeyState.down ? 1.0  : 0.0) +
-                        (keyStates[65] === KeyState.down ? -1.0 : 0.0),
-            phiDir   = (keyStates[87] === KeyState.down ? 1.0  : 0.0) +
-                        (keyStates[83] === KeyState.down ? -1.0 : 0.0),
-            psiDir   = (keyStates[81] === KeyState.down ? 1.0  : 0.0) +
-                       (keyStates[69] === KeyState.down ? -1.0 : 0.0),
-            thetaValues = accelerate(thetaDir,a,dragCoeff,duration,
-                                      {disp:     value.thetaDisp,
-                                       velocity: value.thetaVelocity }),
-            phiValues = accelerate(phiDir,a,dragCoeff,duration,
-                                    {disp:     value.phiDisp,
-                                     velocity: value.phiVelocity }),
-            psiValues = accelerate(psiDir,a,dragCoeff,duration,
-                                   {disp:     value.psiDisp,
-                                    velocity: value.psiVelocity });
-
-        return({ thetaDisp: thetaValues.disp, thetaVelocity: thetaValues.velocity,
-                 phiDisp:   phiValues.disp,   phiVelocity: phiValues.velocity,
-                 psiDisp:   psiValues.disp,   psiVelocity: psiValues.velocity });
-    });
-
-    var display_scene_closure = function () {
-      var time = (new Date()).getTime() - startTime;
-
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-      gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
-
-      var cameraRotValues = cameraRotationHandlers.frameHandler(lastTime || time, time);
-
-      gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, cameraRotValues.mvpMatrix);
-
-      var z = zoomHandlers.frameHandler(lastTime || time, time).disp;
-      gl.uniform1f(shaderProgram.zoomUniform,displacementToZoomFactor(z));
-
-      var rotValues = objectRotationHandlers.frameHandler(lastTime || time, time);
-      gl.uniform1f(shaderProgram.thetaUniform, rotValues.thetaDisp);
-      gl.uniform1f(shaderProgram.phiUniform, rotValues.phiDisp);
-      gl.uniform1f(shaderProgram.psiUniform, rotValues.psiDisp);
-
-      setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
-
-      /* Now draw the frame */
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, verticesObj.vertices.length / ITEM_SIZE);
-      lastTime = time;
-
-    };
-
-    [ zoomHandlers, cameraRotationHandlers, objectRotationHandlers].map(function(hs) {
-      $(canvas).keyup(hs.keyUpHandler);
-      $(canvas).keydown(hs.keyDownHandler);
-    });
-
-    setInterval(display_scene_closure, INTERVAL);
-}
-
-/* Modifies values parameter */
-function keyHandle(startTime, e, values, keyCode, keyDirection) {
-  var opposite, key;
-
-  if (keyDirection === KeyState.up) {
-    opposite = KeyState.down;
-    key = "upTime";
-  } else {
-    opposite = KeyState.up;
-    key = "downTime";
-  }
-
-  if (e.keyCode === keyCode && values.state === opposite) {
-     values[key] = (new Date()).getTime() - startTime;
-     values.state = keyDirection;
-  }
-}
-
-function bindMeshToBuffer(gl, verticesObj, vertexPositionAttribute, meshWidth) {
-  verticesObj.vertices = mesh(MESH_SQUARES,meshWidth);
-  gl.bufferData(gl.ARRAY_BUFFER, verticesObj.vertices, gl.STATIC_DRAW);
-  gl.vertexAttribPointer(vertexPositionAttribute, ITEM_SIZE, gl.FLOAT, false, 0, 0);
-}
-
-/*
- *  @makeContinuousHandlers@ returns three handlers that all manipulate a shared
- *  state.
- *
- *  1. A key-down handler.
- *  2. A key-up handler.
- *  3. A frame handler. (Frame as in a frame of an animation.)
- *
- * The function @f@ (@f(duration, keyStates, value)@)
- * is a _value updating function_. It takes a
- * frame duration, the key states of various keys in
- * that frame, and object (of arbitrary form).
- *
- * It should produce an object of that same form.
- *
- * (Note: The @duration@ parameter is typically very short --
- *  a few milliseconds at most.)
- *
- * The handlers returned should be used as follows:
- *
- * 1. The key-down and key-up handlers should be added to (not overwrite)
- *    the key-down and key-up handlers for the canvas.
- * 2. The frame handler, which takes a @last@ and @now@ time
- *    (the endpoints of the frame) should be used to get the latest
- *    value. (The internal state of the value is updated in the process.)
- *
- * The function is called makeContinuousHandlers because it is meant to be
- * used on values that change continuously, based on how long particular
- * keys were depressed. As you can see from the value updating function
- * we approximate continuity by performing operations on many small
- * durations.
- *
- */
-function makeContinuousHandlers(keyCodes, initValue, f) {
-
-
-  var keyStates = {}, /* keyStates records the current state of the keys */
-      value     = initValue;
-
-  /* Initialise keyStates */
-  keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
+var WebGL = (function() {
+
+  /* -*-javascript-*- */
+  var INTERVAL = 15; /* milliseconds between frames */
+  var MESH_SQUARES = 500; /* Number of squares in the mesh. Number of triangles is twice this */
+  var SLOW_DOWN_FACTOR = 1000.0; /* Time since start (in milliseconds) is divided by this value */
+
+  var INIT_VELOCITY = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
+  var ACCELERATION = 5.0;     /* Acceleration. radians per second per second. (1/s^2) */
+  var MAX_VELOCITY  = 10.0;
+  var ITEM_SIZE = 2;          /* Number of items in each vertex of the mesh.
+                               * They are pairs in a plane so it is 2 */
+
+  var INITIAL_MESH_WIDTH = 2.0; /* -1 to 1 on both axes */
 
   /*
-   * These closures refer to @keyValues@ and @currentValue@.
-   * The key handlers only do something if they key pressed has a
-   * @keyCode@ equal to @keyCode@ parameter above.
+   * Enumeration types
    */
-  var downHandler  = function(e) {
-    keyCodes.map(function(keyCode) {
-      if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.down}
-    });
-  };
-  var upHandler    = function(e) {
-    keyCodes.map(function(keyCode) {
-      if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.up}
-    });
-  };
+  var KeyState = { up: 0, down:  1 }; /* enumeration */
+  var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
+  var RotationDirection = { positive: 0, negative: 1 };
+  var Direction = { positive: 0, negative: 1};
 
-  var frameHandler = function(last,now) {
-    var duration = (now - last > 0 ? now - last : 0);
-    return (value = f(duration, keyStates, value));
-  };
+  function initGL(canvas) {
+      var gl;
+      try {
+          gl = canvas.getContext("experimental-webgl", { antialias: true } );
+          gl.viewportWidth = canvas.width;
+          gl.viewportHeight = canvas.height;
+          return gl;
+      } catch (e) {
+          return;
+      }
+  }
 
-  return { keyUpHandler:   upHandler,
-           keyDownHandler: downHandler,
-           frameHandler:    frameHandler };
-}
+  function getShader(gl, id) {
+      var shaderScript = document.getElementById(id);
+      if (!shaderScript) {
+          return null;
+      }
 
-function webGLStart() {
-    $(".playspace-canvas").each(function(i) {
-      createClosures(this, i);
+      var str = "";
+      var k = shaderScript.firstChild;
+      while (k) {
+          if (k.nodeType === 3) {
+              str += k.textContent;
+          }
+          k = k.nextSibling;
+      }
+
+      var shader;
+      if (shaderScript.type === "x-shader/x-fragment") {
+          shader = gl.createShader(gl.FRAGMENT_SHADER);
+      } else if (shaderScript.type === "x-shader/x-vertex") {
+          shader = gl.createShader(gl.VERTEX_SHADER);
+      } else {
+          return null;
+      }
+
+      gl.shaderSource(shader, str);
+      gl.compileShader(shader);
+
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          alert(gl.getShaderInfoLog(shader));
+          return null;
+      }
+      return shader;
+  }
+
+  function addShadyUIs(name, gl, shaderProgram) {
+    var shadyUISpec   = $('#' + name + '.shady-ui-spec');
+    var shadyUIWidgets = $('#' + name + '.shady-ui-widgets');
+
+    var shadyUISpecs = eval(shadyUISpec.text());
+
+
+    var showUI = (shadyUISpec.attr('show-ui') || "true") === "true" ? true : false ;
+
+    var i=0;
+    for (i=0; i < shadyUISpecs.length; i++) {
+      Shady.addUI(shadyUIWidgets, shadyUISpecs[i], showUI);
+    }
+
+    /* Link up uniforms */
+    shadyUIWidgets.find('.shady-ui').each(function() {
+      var uniformName;
+      if ( uniformName = $(this).attr("glsl-name") ) {
+        shaderProgram[uniformName] = gl.getUniformLocation(shaderProgram, uniformName);
+      }
+    })
+
+  }
+
+  function initShaders(gl, name) {
+      var fragmentShader = getShader(gl, "shader-fs-" + name);
+      var vertexShader   = getShader(gl, "shader-vs-" + name);
+
+      var shaderProgram = gl.createProgram();
+      gl.attachShader(shaderProgram, vertexShader);
+      gl.attachShader(shaderProgram, fragmentShader);
+      gl.linkProgram(shaderProgram);
+
+      if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+          alert("Could not initialise shaders");
+      }
+
+      gl.useProgram(shaderProgram);
+
+      shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "meshCoords");
+      gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+      /*
+       * We add several properties to the shaderProgram object here.
+       * (You can do this with Javascript objects; just add 'em in there.)
+       * They are all GLSL uniform locations.
+       */
+      shaderProgram.mvpMatrixUniform    = gl.getUniformLocation(shaderProgram,
+                                                                "ModelViewProjectionMatrix");
+      shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
+      shaderProgram.zoomUniform         = gl.getUniformLocation(shaderProgram, "zoom");
+      shaderProgram.phiUniform          = gl.getUniformLocation(shaderProgram, "yzAngle");
+      shaderProgram.thetaUniform        = gl.getUniformLocation(shaderProgram, "xzAngle");
+      shaderProgram.psiUniform          = gl.getUniformLocation(shaderProgram, "xyAngle");
+      addShadyUIs(name, gl, shaderProgram);
+
+      return shaderProgram;
+  }
+
+  /* For some reason WebGL just hates the (x,y) value (0.0, 0.0). We add a small error value
+     to prevent this problem */
+  function mesh(n,width) {
+      var a = new Float32Array(2*(2*(n*(n+1))  + 2*(n-1)   ));
+      var i, j, len = 0;
+      var delta = width / n + 0.000000000000001;
+
+      var x, y = -(width/2.0);
+      for (j = 0; j < n; j++, y+=delta) {
+          if (j > 0) {
+              /* Degenerate triangles */
+              a[len++] = (width/2.0); // x value
+              a[len++] = y; // y value
+              a[len++] = -(width/2); // x value
+              a[len++] = y; // y value
+          }
+
+          for (i = 0, x = -(width/2); i <= n; i++, x+=delta) {
+              a[len++] = x; // x value
+              a[len++] = y; // y value
+              a[len++] = x; // x value
+              a[len++] = y+delta; // y value
+          }
+      }
+      return a;
+  }
+
+  /*
+   * Turns a zoom displacement to a zoom factor. A zoom displacement has the following properties.
+   *
+   * 1. A displacement of zero is "no zoom".
+   * 2. Positive zoom "zooms in".
+   * 3. Negative zoom "zooms out".
+   *
+   * A zoom displacement of 1 means "zoom in by 100%"
+   * and produces a zoom factor of 2.
+   *
+   * A zoom displacement of -1 means "zoom out by 100%"
+   * and produces a zoom factor of 1/2
+   *
+   */
+  function displacementToZoomFactor(z) {
+    return z >= 0 ? z + 1 : 1/(1-z);
+  }
+
+  /*
+   *
+   * @direction@ is either -1, 0, or 1.
+   * @value@ is of form { disp: <displacement>, velocity: <velocity> }
+   *
+   */
+  function accelerate(direction, accel, dragCoefficient, duration, value) {
+
+    var t  = duration/1000.0;
+
+    var s0 = value.disp;
+
+    var u  = value.velocity;
+    var drag = dragCoefficient* Math.pow(Math.abs(u),0.5) *
+               (u >= 0 ? 1 : -1); /* Drag is proportional to velocity */
+    var a  = accel*direction - drag;
+    var v  = u + a*t;
+    var s  = s0 + u*t + 0.5*a*t*t;
+    var newValueState = { disp: s, velocity: v };
+    return newValueState;
+  }
+
+  function rotateAboutAxis(amount, axis, mvpMatrix) {
+    /* t is in seconds not milliseconds */
+    var axisVector;
+
+    switch (axis) {
+      case Axis.x:
+        axisVector = [ mvpMatrix[0], mvpMatrix[4], mvpMatrix[8] ];
+        break;
+      case Axis.y:
+        axisVector = [ mvpMatrix[1], mvpMatrix[5], mvpMatrix[9] ];
+        break;
+      case Axis.z:
+        axisVector = [ mvpMatrix[2], mvpMatrix[6], mvpMatrix[10] ];
+        break;
+    }
+
+    mat4.rotate(mvpMatrix, amount, axisVector);
+  }
+
+  function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
+    $('#' + canvas.id + ".shady-ui-widgets").find('.shady-ui').each(function(that) {
+       var uniformName = $(this).attr("glsl-name");
+       var uiType = $(this).attr("glsl-type");
+
+       if ( uniformName && uiType ) {
+         switch (uiType) {
+           case "time":
+             gl.uniform1f(shaderProgram[uniformName], time / SLOW_DOWN_FACTOR);
+             break;
+           case "float":
+             gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
+             break;
+           case "int":
+             gl.uniform1f(shaderProgram[uniformName], parseFloat($(this).attr("glsl-value")));
+             break;
+
+         }
+       }
     });
-}
+  }
+
+  /*
+   * Creates the drawScene and keyHandler closures for each effect
+   * See this Stack Overflow post for more detail on closures:
+   *   http://stackoverflow.com/questions/111102/how-do-javascript-closures-work
+   */
+  function createClosures(canvas, i) {
+      var startTime = (new Date()).getTime();
+      var gl, squareVertexPositionBuffer, shaderProgram,
+          initialMVPMatrix = mat4.create(),
+          normalMatrix = mat3.create(),
+          lastTime = false,
+          initValues = function() { return { upTime: startTime, downTime: 0,
+                                             velocity: INIT_VELOCITY,
+                                             state: KeyState.up } },
+          keyValues = { up:      initValues(),
+                        down:    initValues(),
+                        left:    initValues(),
+                        right:   initValues() };
+
+
+      mat4.identity(initialMVPMatrix);
+      mat3.identity(normalMatrix);
+
+      gl = initGL(canvas);
+
+      if (!gl && i === 0) {
+        alert("Could not initialise WebGL, sorry");
+        return;
+      } else if (!gl) {
+        return;
+      }
+
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.enable(gl.DEPTH_TEST);
+
+      shaderProgram = initShaders(gl, canvas.id);
+
+      /*
+       * Create and bind buffer. This can only be done once.
+       * You can change the data that the buffer points to with gl.bufferData
+       */
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+
+      var meshWidth = INITIAL_MESH_WIDTH;
+
+      var verticesObj = { vertices: [] }; // This object is modified by bindMeshToBuffer
+      bindMeshToBuffer(gl, verticesObj, shaderProgram.vertexPositionAttribute, meshWidth);
+      gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+
+
+      /* Handlers to change the mesh size */
+      $(canvas).keypress(function(e) {
+        var decreaseKeys = [",","<"], increaseKeys = [".", ">"], changed = false;
+
+        if (decreaseKeys.some(function(s) { return(s.charCodeAt(0) == e.charCode);})) {
+          meshWidth /= 2;
+          changed = true;
+        }
+        if (increaseKeys.some(function(s) { return(s.charCodeAt(0) == e.charCode);})) {
+          meshWidth *= 2;
+          changed = true;
+        }
+        if (changed) { bindMeshToBuffer(gl, verticesObj,
+                                        shaderProgram.vertexPositionAttribute, meshWidth); }
+      })
+
+      var zoomHandlers = makeContinuousHandlers([90 /*Z*/,88 /*X*/], { disp: 0.0, velocity: 0.0},
+        function(duration,keyStates,value) {
+
+          var direction = (keyStates[88] === KeyState.down ? 1.0  : 0.0) +
+                          (keyStates[90] === KeyState.down ? -1.0 : 0.0);
+
+          return accelerate(direction,5.0,1.0,duration,value);
+        });
+
+      var cameraRotationHandlers =
+         makeContinuousHandlers([/*Y*/ 89, /*G*/ 71, /*H*/ 72, /*J*/ 74],
+           { vertVelocity: 0.0,
+             horizVelocity: 0.0,
+             mvpMatrix: initialMVPMatrix },
+           function(duration, keyStates, value) {
+             var a = 10.0, dragCoeff = 2.0;
+
+             var vertDir =  (keyStates[89] === KeyState.down ?  1.0 : 0.0) +
+                            (keyStates[72] === KeyState.down ? -1.0 : 0.0),
+                 horizDir = (keyStates[71] === KeyState.down ?  1.0 : 0.0) +
+                            (keyStates[74] === KeyState.down ? -1.0 : 0.0),
+                 vertValues =  accelerate(vertDir,a,dragCoeff,duration,
+                                          { disp: 0.0, velocity: value.vertVelocity }),
+                 horizValues =  accelerate(horizDir,a,dragCoeff,duration,
+                                          { disp: 0.0, velocity: value.horizVelocity });
+                 rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
+
+                 rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
+
+                 return({ vertVelocity:  vertValues.velocity,
+                          horizVelocity: horizValues.velocity,
+                          mvpMatrix:     value.mvpMatrix
+                        });
+           });
+
+      var objectRotationHandlers =
+        makeContinuousHandlers([87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/, 81 /*Q*/, 69 /*E*/],
+                     { phiDisp:   0.0,   phiVelocity:   0.0,
+                       thetaDisp: 0.0,   thetaVelocity: 0.0,
+                       psiDisp:   0.0,   psiVelocity:   0.0 },
+                       function(duration,keyStates,value) {
+
+          var a = 5.0, dragCoeff = 2.0;
+
+          var thetaDir = (keyStates[68] === KeyState.down ? 1.0  : 0.0) +
+                          (keyStates[65] === KeyState.down ? -1.0 : 0.0),
+              phiDir   = (keyStates[87] === KeyState.down ? 1.0  : 0.0) +
+                          (keyStates[83] === KeyState.down ? -1.0 : 0.0),
+              psiDir   = (keyStates[81] === KeyState.down ? 1.0  : 0.0) +
+                         (keyStates[69] === KeyState.down ? -1.0 : 0.0),
+              thetaValues = accelerate(thetaDir,a,dragCoeff,duration,
+                                        {disp:     value.thetaDisp,
+                                         velocity: value.thetaVelocity }),
+              phiValues = accelerate(phiDir,a,dragCoeff,duration,
+                                      {disp:     value.phiDisp,
+                                       velocity: value.phiVelocity }),
+              psiValues = accelerate(psiDir,a,dragCoeff,duration,
+                                     {disp:     value.psiDisp,
+                                      velocity: value.psiVelocity });
+
+          return({ thetaDisp: thetaValues.disp, thetaVelocity: thetaValues.velocity,
+                   phiDisp:   phiValues.disp,   phiVelocity: phiValues.velocity,
+                   psiDisp:   psiValues.disp,   psiVelocity: psiValues.velocity });
+      });
+
+      var display_scene_closure = function () {
+        var time = (new Date()).getTime() - startTime;
+
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
+
+        var cameraRotValues = cameraRotationHandlers.frameHandler(lastTime || time, time);
+
+        gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, cameraRotValues.mvpMatrix);
+
+        var z = zoomHandlers.frameHandler(lastTime || time, time).disp;
+        gl.uniform1f(shaderProgram.zoomUniform,displacementToZoomFactor(z));
+
+        var rotValues = objectRotationHandlers.frameHandler(lastTime || time, time);
+        gl.uniform1f(shaderProgram.thetaUniform, rotValues.thetaDisp);
+        gl.uniform1f(shaderProgram.phiUniform, rotValues.phiDisp);
+        gl.uniform1f(shaderProgram.psiUniform, rotValues.psiDisp);
+
+        setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
+
+        /* Now draw the frame */
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, verticesObj.vertices.length / ITEM_SIZE);
+        lastTime = time;
+
+      };
+
+      [ zoomHandlers, cameraRotationHandlers, objectRotationHandlers].map(function(hs) {
+        $(canvas).keyup(hs.keyUpHandler);
+        $(canvas).keydown(hs.keyDownHandler);
+      });
+
+      setInterval(display_scene_closure, INTERVAL);
+  }
+
+  /* Modifies values parameter */
+  function keyHandle(startTime, e, values, keyCode, keyDirection) {
+    var opposite, key;
+
+    if (keyDirection === KeyState.up) {
+      opposite = KeyState.down;
+      key = "upTime";
+    } else {
+      opposite = KeyState.up;
+      key = "downTime";
+    }
+
+    if (e.keyCode === keyCode && values.state === opposite) {
+       values[key] = (new Date()).getTime() - startTime;
+       values.state = keyDirection;
+    }
+  }
+
+  function bindMeshToBuffer(gl, verticesObj, vertexPositionAttribute, meshWidth) {
+    verticesObj.vertices = mesh(MESH_SQUARES,meshWidth);
+    gl.bufferData(gl.ARRAY_BUFFER, verticesObj.vertices, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(vertexPositionAttribute, ITEM_SIZE, gl.FLOAT, false, 0, 0);
+  }
+
+  /*
+   *  @makeContinuousHandlers@ returns three handlers that all manipulate a shared
+   *  state.
+   *
+   *  1. A key-down handler.
+   *  2. A key-up handler.
+   *  3. A frame handler. (Frame as in a frame of an animation.)
+   *
+   * The function @f@ (@f(duration, keyStates, value)@)
+   * is a _value updating function_. It takes a
+   * frame duration, the key states of various keys in
+   * that frame, and object (of arbitrary form).
+   *
+   * It should produce an object of that same form.
+   *
+   * (Note: The @duration@ parameter is typically very short --
+   *  a few milliseconds at most.)
+   *
+   * The handlers returned should be used as follows:
+   *
+   * 1. The key-down and key-up handlers should be added to (not overwrite)
+   *    the key-down and key-up handlers for the canvas.
+   * 2. The frame handler, which takes a @last@ and @now@ time
+   *    (the endpoints of the frame) should be used to get the latest
+   *    value. (The internal state of the value is updated in the process.)
+   *
+   * The function is called makeContinuousHandlers because it is meant to be
+   * used on values that change continuously, based on how long particular
+   * keys were depressed. As you can see from the value updating function
+   * we approximate continuity by performing operations on many small
+   * durations.
+   *
+   */
+  function makeContinuousHandlers(keyCodes, initValue, f) {
+
+
+    var keyStates = {}, /* keyStates records the current state of the keys */
+        value     = initValue;
+
+    /* Initialise keyStates */
+    keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
+
+    /*
+     * These closures refer to @keyValues@ and @currentValue@.
+     * The key handlers only do something if they key pressed has a
+     * @keyCode@ equal to @keyCode@ parameter above.
+     */
+    var downHandler  = function(e) {
+      keyCodes.map(function(keyCode) {
+        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.down}
+      });
+    };
+    var upHandler    = function(e) {
+      keyCodes.map(function(keyCode) {
+        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.up}
+      });
+    };
+
+    var frameHandler = function(last,now) {
+      var duration = (now - last > 0 ? now - last : 0);
+      return (value = f(duration, keyStates, value));
+    };
+
+    return { keyUpHandler:   upHandler,
+             keyDownHandler: downHandler,
+             frameHandler:    frameHandler };
+  }
+
+  function start() {
+      $(".playspace-canvas").each(function(i) {
+        createClosures(this, i);
+      });
+  }
+
+  /* Return "methods" for this object */
+  return({ start: start });
+
+})();
+
+
+
