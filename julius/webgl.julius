@@ -398,20 +398,6 @@ function createClosures(canvas, i) {
                                       shaderProgram.vertexPositionAttribute, meshWidth); }
     })
 
-    var meshWidthHandlers = makeContinuousHandlers([188 /*<*/, 190 /*>*/],
-                                        { meshWidth: INITIAL_MESH_WIDTH },
-      function(duration,keyStates,value) {
-        var factor = (keyStates[188] == KeyState.down ? 0.5 : 1.0) *
-                     (keyStates[190] == KeyState.down ? 2.0 : 1.0),
-            newMeshWidth = value.meshWidth * factor;
-
-        if (Math.abs(value.meshWidth - newMeshWidth) > 0.01) {
-          bindMeshToBuffer(gl, verticesObj, shaderProgram.vertexPositionAttribute, newMeshWidth);
-        }
-
-        return({ meshWidth: newMeshWidth });
-      });
-
     var zoomHandlers = makeContinuousHandlers([90 /*Z*/,88 /*X*/], { disp: 0.0, velocity: 0.0},
       function(duration,keyStates,value) {
 
@@ -498,7 +484,7 @@ function createClosures(canvas, i) {
     $(canvas).keyup(cameraRotationKeyDownHandler);
     $(canvas).keydown(cameraRotationKeyUpHandler);
 
-    [zoomHandlers, meshWidthHandlers, rotationHandlers].map(function(hs) {
+    [ zoomHandlers, rotationHandlers].map(function(hs) {
       $(canvas).keyup(hs.keyUpHandler);
       $(canvas).keydown(hs.keyDownHandler);
     });
