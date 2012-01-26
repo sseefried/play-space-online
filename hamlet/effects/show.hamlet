@@ -8,9 +8,14 @@
 <br/>
 <p>Use <strong>W</strong>, <strong>A</strong>, <strong>S</strong> and <strong>D</strong> #
    to rotate object.</p>
-<p>Use <strong>Y</strong>, <strong>G</strong>, <strong>H</strong> and <strong>J</strong> #
+
+<p>Use <strong>T</strong>, <strong>F</strong>, <strong>G</strong> and <strong>H</strong> #
+   to pan object.</p>
+
+<p>Use <strong>I</strong>, <strong>J</strong>, <strong>K</strong> and <strong>L</strong> #
    to rotate camera.</p>
-<p>Use <strong>Z</strong> and <strong>X</strong> to zoom.</p>
+
+<p>Use <strong>Z</strong> and <strong>X</strong> to zoom in/out.</p>
 <p>Use <strong><</strong> and <strong>></strong> decrease/increase mesh size.</p>
 <br/>
 <form action=@{DeleteEffectR $ effectName effect} method=POST>

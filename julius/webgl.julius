@@ -127,8 +127,9 @@ var WebGL = (function() {
        */
       shaderProgram.mvpMatrixUniform    = gl.getUniformLocation(shaderProgram,
                                                                 "ModelViewProjectionMatrix");
-      shaderProgram.normalMatrixUniform = gl.getUniformLocation(shaderProgram, "NormalMatrix");
-      shaderProgram.zoomUniform         = gl.getUniformLocation(shaderProgram, "zoom");
+      shaderProgram.normalMatrixUniform  = gl.getUniformLocation(shaderProgram, "NormalMatrix");
+      shaderProgram.zoomUniform          = gl.getUniformLocation(shaderProgram, "zoom");
+      shaderProgram.panUniform           = gl.getUniformLocation(shaderProgram, "pan");
       shaderProgram.aRowUniform          = gl.getUniformLocation(shaderProgram, "aRow");
       shaderProgram.bRowUniform          = gl.getUniformLocation(shaderProgram, "bRow");
       shaderProgram.cRowUniform          = gl.getUniformLocation(shaderProgram, "cRow");
@@ -320,33 +321,30 @@ var WebGL = (function() {
           var direction = (keyStates[88] === KeyState.down ? 1.0  : 0.0) +
                           (keyStates[90] === KeyState.down ? -1.0 : 0.0);
 
-          return accelerate(direction,5.0,1.0,duration,value);
+          return accelerate(direction,10.0,3.0,duration,value);
         });
 
       var cameraRotationHandlers =
-         makeContinuousHandlers([/*Y*/ 89, /*G*/ 71, /*H*/ 72, /*J*/ 74],
+         makeContinuousHandlers([/*I*/ 73, /*J*/ 74, /*K*/ 75, /*L*/ 76],
            { vertVelocity: 0.0,
              horizVelocity: 0.0,
              mvpMatrix: initialMVPMatrix },
            function(duration, keyStates, value) {
              var a = 10.0, dragCoeff = 2.0;
 
-             var vertDir =  (keyStates[89] === KeyState.down ?  1.0 : 0.0) +
-                            (keyStates[72] === KeyState.down ? -1.0 : 0.0),
-                 horizDir = (keyStates[71] === KeyState.down ?  1.0 : 0.0) +
-                            (keyStates[74] === KeyState.down ? -1.0 : 0.0),
+             var vertDir = opposingKeysDir(keyStates, 73, 75),
+                 horizDir = opposingKeysDir(keyStates, 74, 76),
                  vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                           { disp: 0.0, velocity: value.vertVelocity }),
                  horizValues =  accelerate(horizDir,a,dragCoeff,duration,
                                           { disp: 0.0, velocity: value.horizVelocity });
-                 rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
 
-                 rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
+             rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
+             rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
 
-                 return({ vertVelocity:  vertValues.velocity,
-                          horizVelocity: horizValues.velocity,
-                          mvpMatrix:     value.mvpMatrix
-                        });
+             return({ vertVelocity:  vertValues.velocity,
+                      horizVelocity: horizValues.velocity,
+                       mvpMatrix:     value.mvpMatrix });
            });
 
       var objectRotationHandlers =
@@ -357,23 +355,39 @@ var WebGL = (function() {
           function(duration, keyStates, value) {
             var a = 10.0, dragCoeff = 2.0;
 
-            var vertDir =  (keyStates[87] === KeyState.down ?  1.0 : 0.0) +
-                           (keyStates[83] === KeyState.down ? -1.0 : 0.0),
-                horizDir = (keyStates[65] === KeyState.down ?  1.0 : 0.0) +
-                           (keyStates[68] === KeyState.down ? -1.0 : 0.0),
+            var vertDir =  opposingKeysDir(keyStates, 87, 83),
+                horizDir = opposingKeysDir(keyStates, 65, 68),
                 vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                          { disp: 0.0, velocity: value.vertVelocity }),
                 horizValues =  accelerate(horizDir,a,dragCoeff,duration,
                                          { disp: 0.0, velocity: value.horizVelocity });
-                rotateAboutAxis(vertValues.disp,  Axis.x, value.rotationMatrix);
+            rotateAboutAxis(vertValues.disp,  Axis.x, value.rotationMatrix);
+            rotateAboutAxis(horizValues.disp, Axis.y, value.rotationMatrix);
 
-                rotateAboutAxis(horizValues.disp, Axis.y, value.rotationMatrix);
-
-                return({ vertVelocity:  vertValues.velocity,
-                         horizVelocity: horizValues.velocity,
-                         rotationMatrix:     value.rotationMatrix
-                       });
+            return({ vertVelocity:  vertValues.velocity,
+                     horizVelocity: horizValues.velocity,
+                     rotationMatrix:     value.rotationMatrix
+                   });
           });
+
+      var panHandlers = makeContinuousHandlers([/*T*/84,/*F*/70,/*G*/71,/*H*/72],
+        { xDisp: 0.0, xVelocity: 0.0,
+          yDisp: 0.0, yVelocity: 0.0 },
+        function(duration, keyStates, value) {
+          var a = 4.0, dragCoeff = 2.0;
+          var xDir = opposingKeysDir(keyStates, 72, 70),
+              yDir = opposingKeysDir(keyStates, 84, 71),
+              xValues = accelerate(xDir,a,dragCoeff,duration,
+                                   { disp: value.xDisp, velocity: value.xVelocity }),
+              yValues = accelerate(yDir,a,dragCoeff,duration,
+                                   { disp: value.yDisp, velocity: value.yVelocity });
+
+          return({ xDisp:     xValues.disp,
+                   xVelocity: xValues.velocity,
+                   yDisp:     yValues.disp,
+                   yVelocity: yValues.velocity });
+        });
+
 
       var display_scene_closure = function () {
         var time = (new Date()).getTime() - startTime;
@@ -393,11 +407,12 @@ var WebGL = (function() {
 
         var m = objectRotValues.rotationMatrix;
 
-        console.log(m);
-
         gl.uniform3fv(shaderProgram.aRowUniform, [m[0],m[4],m[8]]);
         gl.uniform3fv(shaderProgram.bRowUniform, [m[1],m[5],m[9]]);
         gl.uniform3fv(shaderProgram.cRowUniform, [m[2],m[6],m[10]]);
+
+        var p = panHandlers.frameHandler(lastTime || time, time);
+        gl.uniform3fv(shaderProgram.panUniform, [p.xDisp, p.yDisp, 0]);
 
         setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
 
@@ -407,7 +422,12 @@ var WebGL = (function() {
 
       };
 
-      [ zoomHandlers, cameraRotationHandlers, objectRotationHandlers].map(function(hs) {
+      $(canvas).keydown(function(e) {
+        console.log(e.keyCode);
+      });
+
+      [ zoomHandlers, cameraRotationHandlers, panHandlers,
+        objectRotationHandlers].map(function(hs) {
         $(canvas).keyup(hs.keyUpHandler);
         $(canvas).keydown(hs.keyDownHandler);
       });
@@ -505,6 +525,11 @@ var WebGL = (function() {
     return { keyUpHandler:   upHandler,
              keyDownHandler: downHandler,
              frameHandler:    frameHandler };
+  }
+
+  function opposingKeysDir(keyStates, posKeyCode, negKeyCode) {
+    return (keyStates[posKeyCode] == KeyState.down ? 1.0: 0.0) +
+           (keyStates[negKeyCode] == KeyState.down ? -1.0: 0.0);
   }
 
   function start() {
