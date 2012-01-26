@@ -5,9 +5,13 @@
 <h1> Effect / #
   <strong> #{effectName effect}
 ^{effectThumbnail eu 600 True}
+<br/>
 <p>Use <strong>W</strong>, <strong>A</strong>, <strong>S</strong> and <strong>D</strong> #
-   to rotate.</p>
-<p>Use <strong>Q</strong> and <strong>Z</strong> to zoom.</p>
+   to rotate object.</p>
+<p>Use <strong>Y</strong>, <strong>G</strong>, <strong>H</strong> and <strong>J</strong> #
+   to rotate camera.</p>
+<p>Use <strong>Z</strong> and <strong>X</strong> to zoom.</p>
+<p>Use <strong><</strong> and <strong>></strong> decrease/increase mesh size.</p>
 <br/>
 <form action=@{DeleteEffectR $ effectName effect} method=POST>
   <div.controls>
