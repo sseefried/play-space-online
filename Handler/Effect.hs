@@ -210,7 +210,10 @@ effectThumbnail (effect,user) size showTheUI = $(widgetFile "effects/thumbnail")
     uniquePrefix = effectUnique effect user
 
 startWebGLScript :: Widget ()
-startWebGLScript = addJulius [$julius| $(function() { WebGL.start(); }); |]
+startWebGLScript = addJulius [$julius| $(function() {
+  /* Auto focus on first canvas */
+  $('canvas')[0].focus();
+  WebGL.start(); }); |]
 --  where
 --    uiJsonUnsafeText = UnsafeText . T.pack . show $ uiJson
 
