@@ -4,19 +4,18 @@
   $forall eu <- effectsAndUsers
     <li.effect>
       <div>
+        <a href="#">
+        <h3> #{effectName $ fst eu}
+        <br>
+        <br>
+        <h4> Created by #{userIdent $ snd eu}
+        <br/>
+        ^{effectThumbnail eu 150 False}
         <form action=@{DeleteEffectR (effectName $ fst eu)} method="POST">
-          <a href="#">
-          <h3> #{effectName $ fst eu}
-          <br>
-          <br>
-          <h4> Created by #{userIdent $ snd eu}
-          <br/>
-          ^{effectThumbnail eu 150 False}
           <span.controls>
             <a href=@{ShowEffectR (effectUser $ fst eu) (effectName $ fst eu)}> Show
             \ | #
             <a href=@{EditEffectR (effectName $ fst eu)}> Edit
             \ | #
             <input.custom type="submit" value="Delete" onclick="return confirm('Are you sure?');">
-
 ^{newForm}

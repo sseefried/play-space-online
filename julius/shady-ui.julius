@@ -1,10 +1,10 @@
-var Shady = (function() {
-  
+var ShadyUI = (function() {
+
   $ = jQuery; // Set $ to be jQuery
 
   /* OpenGL will _pull_ from user interface items not the other way around.
-     Thus each of these user interface items must have an name and type so that
-     the WebGL code knows what to do with the value 
+     Thus each of these user interface items must have a name and type so that
+     the WebGL code knows what to do with the value
 
      jQuery selectors to get this out are
 
@@ -84,9 +84,9 @@ var Shady = (function() {
   function hidden_ui(id, glsl_name, glsl_value, glsl_type) {
     var e = $(id);
     e.addClass("shady-ui");
-    e.attr("glsl-name", glsl_name);
+    e.attr("glsl-name",  glsl_name);
     e.attr("glsl-value", glsl_value);
-    e.attr("glsl-type", glsl_type);
+    e.attr("glsl-type",  glsl_type);
     e.empty(); // delete any children
   }
 
@@ -100,7 +100,7 @@ var Shady = (function() {
       switch (ui["sort"]) {
         case 'float_slider':
         case 'float_slider_with_step':
-        case 'int_slider': 
+        case 'int_slider':
           generic_slider(id, ui);
           break;
         case 'time':

@@ -78,18 +78,34 @@ var WebGL = (function() {
       return shader;
   }
 
+  /*
+   * This button empties the widges, unbinds event handlers and re-runs 'webGLStart'
+   */
+  function addResetButton(parent) {
+    $(parent).append('<input id="reset-button" type="submit" value="Reset">')
+    $('#reset-button').click(function() {
+      var canvas = $('canvas')[0];
+      // $('script').each(function() { $(this).attr('id', $(this).attr(id)) });
+      $('.shady-ui-widgets').empty();
+      $(canvas).unbind(); /* Unbind all event handlers */
+      webGLStart();
+    });
+
+  }
+
   function addShadyUIs(name, gl, shaderProgram) {
     var shadyUISpec   = $('#' + name + '.shady-ui-spec');
     var shadyUIWidgets = $('#' + name + '.shady-ui-widgets');
-
     var shadyUISpecs = eval(shadyUISpec.text());
-
-
     var showUI = (shadyUISpec.attr('show-ui') || "true") === "true" ? true : false ;
-
     var i=0;
+
+    if (showUI) {
+      addResetButton(shadyUIWidgets);
+    }
+
     for (i=0; i < shadyUISpecs.length; i++) {
-      Shady.addUI(shadyUIWidgets, shadyUISpecs[i], showUI);
+      ShadyUI.addUI(shadyUIWidgets, shadyUISpecs[i], showUI);
     }
 
     /* Link up uniforms */
@@ -535,14 +551,14 @@ var WebGL = (function() {
            (keyStates[negKeyCode] == KeyState.down ? -1.0: 0.0);
   }
 
-  function start() {
+  function webGLStart() {
       $(".playspace-canvas").each(function(i) {
         createClosures(this, i);
       });
   }
 
   /* Return "methods" for this object */
-  return({ start: start });
+  return({ start: webGLStart });
 
 })();
 
