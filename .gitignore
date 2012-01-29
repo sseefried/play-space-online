@@ -1,3 +1,18 @@
 dist/
 *.db3
 static/tmp
+
+*~
+Junk*
+Old*
+dist
+tarballs
+Stuff
+TAGS
+
+# Mac OS generates
+.DS_Store
+
+# Where do these files come from?  They're not readable.
+# For instance, .#Help.page
+.#*
