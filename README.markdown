@@ -5,11 +5,14 @@
 ### Clone the *Shady* packages
 
 
-This web application depends on two Haskell packages that are in active development:
+*PlaySpace Online* depends on two Haskell packages that are in active development:
 [`shady-gen`](http://github.com/sseefried/shady-gen) and 
 [`shady-graphics`](http://github.com/sseefried/shady-graphics). First clone these two repositories from the links before and, in both repositories, check out the `playspace-online` branch:
 
 ```bash
+$ cd /path/to/shady-gen
+$ git checkout playspace-online
+$ cd /path/to/shady-graphics
 $ git checkout playspace-online
 ```
 
@@ -23,15 +26,14 @@ $ cabal install cabal-dev
 
 #### A short note on the <tt>.cabal</tt> file.
 
-This web application depends on a *lot* of packages. Unfortunately, my experience is
-that specifying the version numbers loosely leads to mixed results on many architectures.
-Hence, every single package this application depends on is specified
-*exactly* in the `.cabal` file. This is okay, since no other package will ever depend on this application.
+This web application depends on a *lot* of packages. Unfortunately, my experience is that specifying
+the version numbers loosely leads to mixed results on many architectures. Hence, every single
+package this application depends on is specified *exactly* in the `.cabal` file. This is okay, since
+no other package will ever depend on this application.
 
 Thus, it will only build with GHC version 6.12.3. You may have noticed a file called
 `play-space-online.cabal.ghc-6.12.3`. In future there will be multiple `.cabal.<ghc-version>` files
-like this which can copy over the real one to build with alternative versions of GHC. Until someone
-fixes the Haskell Cabal, this is the solution I'm going with.
+like this which you can copy over the real one in order to build with alternative versions of GHC.
 
 #### Build it! 
 
@@ -53,7 +55,7 @@ $ cabal-dev add-source /path/to/shady-gen
 $ cabal-dev add-source /path/to/shady-graphics
 ```
 
-The utility `cabal-dev` tarballs up the packages at a particularly point in time. If you change the
+The utility `cabal-dev` tarballs up the packages at a particular point in time. If you change the
 sources `cabal-dev` has no way of knowing.
 
 ### Creating a <tt>.cabal</tt> file for other GHC versions
