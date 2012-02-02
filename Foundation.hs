@@ -147,9 +147,9 @@ instance YesodAuth Foundation where
             Nothing -> do
                 fmap Just $ insert $ User (credsIdent creds) Nothing
 
-    authPlugins = [ authOpenId
+    authPlugins = [ -- authOpenId
 --                  , authEmail
-                  , authDummy
+                     authDummy
 --                  , authHashDB
                   ]
 

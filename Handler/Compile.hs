@@ -115,7 +115,7 @@ effectCodeWrapper uniquePrefix codeStr = T.unlines [
   , "import Shady.Misc"
   , "import Shady.CompileE"
   , "import Shady.Image"
-  , "import qualified Shady.Vec as V"
+  , "import qualified TypeUnary.Vec as V"
   , "import Shady.CompileEffect"
   , "import Control.Applicative hiding ((<*))"
   , ""
