@@ -42,11 +42,10 @@ executable         play-space-online
         Buildable: False
 
     if flag(production)
-        extensions:  CPP 
-        cpp-options: -DPRODUCTION
-        ghc-options: -Wall -threaded -O2 -optP-DDPRODUCTION
+        cpp-options:   -DPRODUCTION
+        ghc-options:   -Wall -threaded -O2 -cpp -optP-DDPRODUCTION
     else
-        ghc-options: -Wall -threaded
+        ghc-options:   -Wall -threaded
 
     main-is:       config/play-space-online.hs
     hs-source-dirs: ., config
