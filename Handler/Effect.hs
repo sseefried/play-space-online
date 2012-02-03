@@ -213,7 +213,8 @@ startWebGLScript :: Widget ()
 startWebGLScript = addJulius [$julius| $(function() {
   /* Auto focus on first canvas */
   $('canvas')[0].focus();
-  WebGL.start(); }); |]
+  WebGL.start();
+  CanvasResize.addHandlers(); }); |]
 --  where
 --    uiJsonUnsafeText = UnsafeText . T.pack . show $ uiJson
 

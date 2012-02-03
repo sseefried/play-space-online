@@ -1,5 +1,8 @@
 <div.canvas-container style="width: #{size}px;">
-  <canvas.playspace-canvas id="#{uniquePrefix}" width="#{size}" height="#{size}" tabindex="1">
+  <div style="float: right;">
+    <div.width-increase id="#{uniquePrefix}-increase-width">+
+    <div.width-decrease id="#{uniquePrefix}-decrease-width">-
+  <canvas.playspace-canvas id="#{uniquePrefix}" style="width: #{size}px; height: #{size}px;" tabindex="1">
 <div class="shady-ui-widgets" id="#{uniquePrefix}">
   <!-- A place for the widgets to go -->
 <div id="#{uniquePrefix}" class="shady-ui-spec" show-ui="#{showUI}" style="display:none;">

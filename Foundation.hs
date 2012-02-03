@@ -95,6 +95,7 @@ instance Yesod Foundation where
             addJulius $(Settings.juliusFile "glMatrix")
             addJulius $(Settings.juliusFile "shady-ui")
             addJulius $(Settings.juliusFile "webgl")
+            addJulius $(Settings.juliusFile "canvas-resize")
             widget
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 

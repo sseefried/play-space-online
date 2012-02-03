@@ -1,0 +1,28 @@
+var CanvasResize = (function() {
+
+  var $ = jQuery;
+
+  function sizeHandler(container, canvas, factor) {
+    return(function() {
+      var width = container.width();
+      container.width(width*factor);
+      canvas.width(width*factor);
+      canvas.height(canvas.width());
+      WebGL.cleanUpCanvas(canvas); // Clean up the old canvas
+      WebGL.start(); // Link and display again.
+    });
+  }
+
+  function addHandlers() {
+    var container      = $('.canvas-container'),
+        canvas         = container.find('.playspace-canvas'),
+        increaseButton = container.find('.width-increase'),
+        decreaseButton = container.find('.width-decrease');
+
+    increaseButton.click(sizeHandler(container,canvas,1.1));
+    decreaseButton.click(sizeHandler(container,canvas,0.9));
+  }
+
+  /* Return the "methods" of this "module" */
+  return({ addHandlers: addHandlers });
+})();

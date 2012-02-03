@@ -12,16 +12,15 @@
 var WebGL = (function() {
 
   /* -*-javascript-*- */
-  var INTERVAL = 15; /* milliseconds between frames */
-  var MESH_SQUARES = 500; /* Number of squares in the mesh. Number of triangles is twice this */
+  var INTERVAL = 15;       /* milliseconds between frames */
+  var MESH_SQUARES = 500;  /* Number of squares in the mesh. Number of triangles is twice this */
   var SLOW_DOWN_FACTOR = 1000.0; /* Time since start (in milliseconds) is divided by this value */
 
-  var INIT_VELOCITY = 0.0;    /* Initial rotation velocity. radians per second (1/s) */
-  var ACCELERATION = 5.0;     /* Acceleration. radians per second per second. (1/s^2) */
+  var INIT_VELOCITY = 0.0;    /* Initial rotation velocity. */
+  var ACCELERATION = 5.0;     /* Acceleration. */
   var MAX_VELOCITY  = 10.0;
   var ITEM_SIZE = 2;          /* Number of items in each vertex of the mesh.
                                * They are pairs in a plane so it is 2 */
-
   var INITIAL_MESH_WIDTH = 2.0; /* -1 to 1 on both axes */
 
   /*
@@ -36,8 +35,24 @@ var WebGL = (function() {
       var gl;
       try {
           gl = canvas.getContext("experimental-webgl", { antialias: true } );
-          gl.viewportWidth = canvas.width;
-          gl.viewportHeight = canvas.height;
+
+          /* The 'width' and 'height' attributes of the canvas object are NOT the same as
+           * the display width and display height (which you can control with CSS).
+           *
+           * The 'width' and 'height' attributes of the canvas element are used to control
+           * the size of the *coordinate space*. It is quite possible for the display size
+           * to be quite different.
+           *
+           * We ensure that the canvas attributes and the display width/height are equal in the
+           * code below.
+           *
+           * See http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html
+           */
+          canvas.width = $(canvas).width();
+          canvas.height = $(canvas).width();
+
+          gl.viewportWidth  = $(canvas).width();
+          gl.viewportHeight = $(canvas).width();
           return gl;
       } catch (e) {
           return;
@@ -78,17 +93,55 @@ var WebGL = (function() {
       return shader;
   }
 
+
+  function logProgram(canvas) {
+    var canv = document.getElementById($(canvas).attr("id"));
+    var gl = canv.getContext("experimental-webgl");
+    [ "DELETE_STATUS", "LINK_STATUS", "VALIDATE_STATUS",
+      "ATTACHED_SHADERS", "ACTIVE_ATTRIBUTES", "ACTIVE_UNIFORMS" ].map(function(attr) {
+       console.log(attr + " =  " + gl.getProgramParameter(canvas.shaderProgram, gl[attr]));
+    });
+  }
+
   /*
-   * This button empties the widges, unbinds event handlers and re-runs 'webGLStart'
+   * Takes a canvas object that has been extended with a 'shaderProgram' attribute,
+   * corresponding to the GLSL shader program displaying in the canvas. It then
+   * unlinks all the programs and removes any event handlers.
+   */
+
+  function cleanUpCanvas(canvases) {
+    $(canvases).each(function() {
+      var canvas = this;
+      var gl = canvas.getContext("experimental-webgl");
+      if (gl === undefined || canvas.shaderProgram === undefined) { return; }
+      gl.getAttachedShaders(canvas.shaderProgram).map(function (shader) {
+        gl.detachShader(canvas.shaderProgram, shader);
+        gl.deleteShader(shader);
+      });
+      gl.deleteBuffer(canvas.shaderProgram.buffer);
+
+
+      gl.disableVertexAttribArray(canvas.shaderProgram.vertexPositionAttribute);
+      gl.deleteProgram(canvas.shaderProgram);
+
+      console.log("removing " + canvas.intervalFunctionId);
+      clearInterval(canvas.intervalFunctionId);
+      $(canvas).unbind(); /* Unbind all event handlers */
+    });
+  }
+
+
+  /*
+   * This button empties the widgets, unbinds event handlers and re-runs 'webGLStart'
    */
   function addResetButton(parent) {
     $(parent).append('<input id="reset-button" type="submit" value="Reset">')
     $('#reset-button').click(function() {
       var canvas = $('canvas')[0];
-      // $('script').each(function() { $(this).attr('id', $(this).attr(id)) });
       $('.shady-ui-widgets').empty();
-      $(canvas).unbind(); /* Unbind all event handlers */
+      cleanUpCanvas(canvas);
       webGLStart();
+      $('canvas').focus();
     });
 
   }
@@ -119,10 +172,13 @@ var WebGL = (function() {
   }
 
   function initShaders(gl, name) {
-      var fragmentShader = getShader(gl, "shader-fs-" + name);
-      var vertexShader   = getShader(gl, "shader-vs-" + name);
+      var fragementShader, vertexShader;
+
+      fragmentShader = getShader(gl, "shader-fs-" + name);
+      vertexShader   = getShader(gl, "shader-vs-" + name);
 
       var shaderProgram = gl.createProgram();
+
       gl.attachShader(shaderProgram, vertexShader);
       gl.attachShader(shaderProgram, fragmentShader);
       gl.linkProgram(shaderProgram);
@@ -301,11 +357,17 @@ var WebGL = (function() {
 
       shaderProgram = initShaders(gl, canvas.id);
 
+      /* We store the 'shaderProgram' in the canvas too. */
+      canvas.shaderProgram = shaderProgram;
+
       /*
        * Create and bind buffer. This can only be done once.
        * You can change the data that the buffer points to with gl.bufferData
        */
-      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+
+      shaderProgram.buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, shaderProgram.buffer);
+
 
       var meshWidth = INITIAL_MESH_WIDTH;
 
@@ -409,7 +471,9 @@ var WebGL = (function() {
 
 
       var display_scene_closure = function () {
+
         var time = (new Date()).getTime() - startTime;
+
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -451,7 +515,8 @@ var WebGL = (function() {
         $(canvas).keydown(hs.keyDownHandler);
       });
 
-      setInterval(display_scene_closure, INTERVAL);
+      canvas.intervalFunctionId = setInterval(display_scene_closure, INTERVAL);
+      console.log("setting " + canvas.intervalFunctionId);
   }
 
   /* Modifies values parameter */
@@ -553,14 +618,12 @@ var WebGL = (function() {
 
   function webGLStart() {
       $(".playspace-canvas").each(function(i) {
+        $(this).unbind();
         createClosures(this, i);
       });
   }
 
-  /* Return "methods" for this object */
-  return({ start: webGLStart });
+  /* Return "methods" for this "module". See top of file for explanation. */
+  return({ cleanUpCanvas: cleanUpCanvas, start: webGLStart });
 
 })();
-
-
-
