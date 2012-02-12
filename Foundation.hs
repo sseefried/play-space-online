@@ -92,10 +92,16 @@ instance Yesod Foundation where
             addCassius $(Settings.cassiusFile "default-layout")
             addLucius $(Settings.luciusFile "master")
             -- The order of the julius (javascript) inclusions matters
-            addJulius $(Settings.juliusFile "glMatrix")
-            addJulius $(Settings.juliusFile "shady-ui")
-            addJulius $(Settings.juliusFile "webgl")
-            addJulius $(Settings.juliusFile "canvas-resize")
+
+            let julii = [ $(Settings.juliusFile "glMatrix")
+                        , $(Settings.juliusFile "enumerations")
+                        , $(Settings.juliusFile "shady-ui")
+                        , $(Settings.juliusFile "key-handler")
+                        , $(Settings.juliusFile "mouse-handler")
+                        , $(Settings.juliusFile "frame-handler")
+                        , $(Settings.juliusFile "webgl")
+                        , $(Settings.juliusFile "canvas-resize")]
+            mapM_ addJulius julii
             widget
         hamletToRepHtml $(Settings.hamletFile "default-layout")
 

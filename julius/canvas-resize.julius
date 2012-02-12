@@ -9,18 +9,19 @@ var CanvasResize = (function() {
       canvas.width(width*factor);
       canvas.height(canvas.width());
       WebGL.cleanUpCanvas(canvas); // Clean up the old canvas
-      WebGL.start(); // Link and display again.
+      // FIXME: Don't reset just resize.
+      WebGL.reset(); // Link and display again.
     });
   }
 
   function addHandlers() {
     var container      = $('.canvas-container'),
         canvas         = container.find('.playspace-canvas'),
-        increaseButton = container.find('.width-increase'),
-        decreaseButton = container.find('.width-decrease');
+        increaseButton = $('.width-increase'),
+        decreaseButton = $('.width-decrease');
 
-    increaseButton.click(sizeHandler(container,canvas,1.1));
-    decreaseButton.click(sizeHandler(container,canvas,0.9));
+    if (increaseButton !== undefined) { increaseButton.click(sizeHandler(container,canvas,1.1)); }
+    if (decreaseButton !== undefined) { decreaseButton.click(sizeHandler(container,canvas,0.9)); }
   }
 
   /* Return the "methods" of this "module" */

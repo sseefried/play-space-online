@@ -4,6 +4,10 @@
 
 <h1> Effect / #
   <strong> #{effectName effect}
+<div style="float: right;">
+  <div.width-increase id="#{uniquePrefix}-increase-width">+
+  <div.width-decrease id="#{uniquePrefix}-decrease-width">-
+
 ^{effectThumbnail eu 600 True}
 <br/>
 <p>Use <strong>W</strong>, <strong>A</strong>, <strong>S</strong> and <strong>D</strong> #

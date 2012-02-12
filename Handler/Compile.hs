@@ -16,6 +16,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.String (fromString)
 
+import Shady.Color
 import Shady.CompileEffect
 import qualified Shady.CompileEffect as S
 
@@ -128,7 +129,9 @@ defaultFragShaderCode, defaultVertShaderCode :: Text -> UnsafeText
 (defaultFragShaderCode, defaultVertShaderCode) =
   (\p -> fromString . fragmentShader $ effectForPrefix p,
    \p -> fromString . vertexShader $ effectForPrefix p)
-  where effectForPrefix p = S.compileEffect (T.unpack p) . shadyEffect . return $ shadyGeometry
+  where
+    effectForPrefix p = S.compileEffect (T.unpack p) . shadyEffect . return $
+                          (shadyGeometry ::ShadyGeometry Color)
 
 -- Utilities
 

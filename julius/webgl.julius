@@ -1,3 +1,11 @@
+/* Requires modules
+   - jquery
+   - enumerations
+   - shady-ui
+   - key-handler
+   - mouse-handler
+ */
+
 /* "WebGL" is a Javascript "module" defined using Douglas Crockford's technique
  * of returning an object containing functions you want to export. i.e.
  *
@@ -22,14 +30,6 @@ var WebGL = (function() {
   var ITEM_SIZE = 2;          /* Number of items in each vertex of the mesh.
                                * They are pairs in a plane so it is 2 */
   var INITIAL_MESH_WIDTH = 2.0; /* -1 to 1 on both axes */
-
-  /*
-   * Enumeration types
-   */
-  var KeyState = { up: 0, down:  1 }; /* enumeration */
-  var Axis = { x: 0, y: 1, z: 2};     /* enumeration */
-  var RotationDirection = { positive: 0, negative: 1 };
-  var Direction = { positive: 0, negative: 1};
 
   function initGL(canvas) {
       var gl;
@@ -108,7 +108,6 @@ var WebGL = (function() {
    * corresponding to the GLSL shader program displaying in the canvas. It then
    * unlinks all the programs and removes any event handlers.
    */
-
   function cleanUpCanvas(canvases) {
     $(canvases).each(function() {
       var canvas = this;
@@ -124,9 +123,21 @@ var WebGL = (function() {
       gl.disableVertexAttribArray(canvas.shaderProgram.vertexPositionAttribute);
       gl.deleteProgram(canvas.shaderProgram);
 
-      console.log("removing " + canvas.intervalFunctionId);
       clearInterval(canvas.intervalFunctionId);
       $(canvas).unbind(); /* Unbind all event handlers */
+    });
+  }
+
+  /*
+   * Resets all canvases
+   */
+  function reset() {
+    $('canvas').each(function() {
+      $('.shady-ui-widgets').empty();
+      cleanUpCanvas(this);
+      webGLStart();
+      // Focus on the first canvas
+      $('canvas')[0].focus();
     });
   }
 
@@ -136,14 +147,7 @@ var WebGL = (function() {
    */
   function addResetButton(parent) {
     $(parent).append('<input id="reset-button" type="submit" value="Reset">')
-    $('#reset-button').click(function() {
-      var canvas = $('canvas')[0];
-      $('.shady-ui-widgets').empty();
-      cleanUpCanvas(canvas);
-      webGLStart();
-      $('canvas').focus();
-    });
-
+    $('#reset-button').click(reset);
   }
 
   function addShadyUIs(name, gl, shaderProgram) {
@@ -255,46 +259,6 @@ var WebGL = (function() {
     return z >= 0 ? z + 1 : 1/(1-z);
   }
 
-  /*
-   *
-   * @direction@ is either -1, 0, or 1.
-   * @value@ is of form { disp: <displacement>, velocity: <velocity> }
-   *
-   */
-  function accelerate(direction, accel, dragCoefficient, duration, value) {
-
-    var t  = duration/1000.0;
-
-    var s0 = value.disp;
-
-    var u  = value.velocity;
-    var drag = dragCoefficient* Math.pow(Math.abs(u),0.5) *
-               (u >= 0 ? 1 : -1); /* Drag is proportional to velocity */
-    var a  = accel*direction - drag;
-    var v  = u + a*t;
-    var s  = s0 + u*t + 0.5*a*t*t;
-    var newValueState = { disp: s, velocity: v };
-    return newValueState;
-  }
-
-  function rotateAboutAxis(amount, axis, m) {
-    /* t is in seconds not milliseconds */
-    var axisVector;
-
-    switch (axis) {
-      case Axis.x:
-        axisVector = [ m[0], m[4], m[8] ];
-        break;
-      case Axis.y:
-        axisVector = [ m[1], m[5], m[9] ];
-        break;
-      case Axis.z:
-        axisVector = [ m[2], m[6], m[10] ];
-        break;
-    }
-
-    mat4.rotate(m, amount, axisVector);
-  }
 
   function setUniformsFromShadyUIs(canvas, gl, shaderProgram, time) {
     $('#' + canvas.id + ".shady-ui-widgets").find('.shady-ui').each(function(that) {
@@ -375,7 +339,7 @@ var WebGL = (function() {
       bindMeshToBuffer(gl, verticesObj, shaderProgram.vertexPositionAttribute, meshWidth);
       gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 
-
+      /* FIXME: Do with a slider */
 
       /* Handlers to change the mesh size */
       $(canvas).keypress(function(e) {
@@ -393,109 +357,55 @@ var WebGL = (function() {
                                         shaderProgram.vertexPositionAttribute, meshWidth); }
       })
 
-      var zoomHandlers = makeContinuousHandlers([90 /*Z*/,88 /*X*/], { disp: 0.0, velocity: 0.0},
-        function(duration,keyStates,value) {
-          var direction = opposingKeysDir(keyStates, 88,90);
-          return accelerate(direction,10.0,3.0,duration,value);
-        });
+      var initialPanValues = { xDisp: 0.0
+                             , xVelocity: 0.0
+                             , yDisp: 0.0
+                             , yVelocity: 0.0
+                             , canvasWidth: $(canvas).width()
+                             , canvasHeight: $(canvas).height() };
 
-      var cameraRotationKeyCodes = [/*I*/ 73, /*J*/ 74, /*K*/ 75, /*L*/ 76];
-      var cameraRotationHandlers =
-         makeContinuousHandlers(cameraRotationKeyCodes,
-           { vertVelocity: 0.0,
-             horizVelocity: 0.0,
-             mvpMatrix: initialMVPMatrix },
-           function(duration, keyStates, value) {
-             var a = 10.0, dragCoeff = 2.0;
+      var panFrameHandler =
+            FrameHandler.pan(canvas, initialPanValues);
+      var objectRotationFrameHandler = FrameHandler.objectRotation(canvas, initialRotationMatrix);
+      var cameraRotationFrameHandler = FrameHandler.cameraRotation(canvas, initialMVPMatrix);
+      var zoomFrameHandler = FrameHandler.zoom(canvas);
 
-             var kcs = cameraRotationKeyCodes;
-             var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
-                 horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
-                 vertValues =  accelerate(vertDir,a,dragCoeff,duration,
-                                          { disp: 0.0, velocity: value.vertVelocity }),
-                 horizValues =  accelerate(horizDir,a,dragCoeff,duration,
-                                          { disp: 0.0, velocity: value.horizVelocity });
-
-             rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
-             rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
-
-             return({ vertVelocity:  vertValues.velocity,
-                      horizVelocity: horizValues.velocity,
-                       mvpMatrix:     value.mvpMatrix });
-           });
-
-      var objectRotationKeyCodes = [87/*W*/, 65/*A*/, 83/*S*/, 68/*D*/];
-      var objectRotationHandlers =
-        makeContinuousHandlers(objectRotationKeyCodes,
-          { vertVelocity: 0.0,
-            horizVelocity: 0.0,
-            rotationMatrix: initialRotationMatrix },
-          function(duration, keyStates, value) {
-            var a = 10.0, dragCoeff = 2.0;
-
-            var kcs = objectRotationKeyCodes;
-            var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
-                horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
-                vertValues =  accelerate(vertDir,a,dragCoeff,duration,
-                                         { disp: 0.0, velocity: value.vertVelocity }),
-                horizValues =  accelerate(horizDir,a,dragCoeff,duration,
-                                         { disp: 0.0, velocity: value.horizVelocity });
-            rotateAboutAxis(vertValues.disp,  Axis.x, value.rotationMatrix);
-            rotateAboutAxis(horizValues.disp, Axis.y, value.rotationMatrix);
-
-            return({ vertVelocity:  vertValues.velocity,
-                     horizVelocity: horizValues.velocity,
-                     rotationMatrix:     value.rotationMatrix
-                   });
-          });
-
-      var panKeyCodes = [/*T*/84,/*F*/70,/*G*/71,/*H*/72];
-      var panHandlers = makeContinuousHandlers(panKeyCodes,
-        { xDisp: 0.0, xVelocity: 0.0,
-          yDisp: 0.0, yVelocity: 0.0 },
-        function(duration, keyStates, value) {
-          var a = 4.0, dragCoeff = 2.0;
-          var kcs = panKeyCodes;
-          var xDir = opposingKeysDir(keyStates, kcs[3], kcs[1]),
-              yDir = opposingKeysDir(keyStates, kcs[0], kcs[2]),
-              xValues = accelerate(xDir,a,dragCoeff,duration,
-                                   { disp: value.xDisp, velocity: value.xVelocity }),
-              yValues = accelerate(yDir,a,dragCoeff,duration,
-                                   { disp: value.yDisp, velocity: value.yVelocity });
-
-          return({ xDisp:     xValues.disp,
-                   xVelocity: xValues.velocity,
-                   yDisp:     yValues.disp,
-                   yVelocity: yValues.velocity });
-        });
-
+      var mouseFrameHandler = FrameHandler.mouse(canvas, { pan: initialPanValues } );
 
       var display_scene_closure = function () {
 
         var time = (new Date()).getTime() - startTime;
 
+        var duration = time - (lastTime || time);
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         gl.uniformMatrix3fv(shaderProgram.normalMatrixUniform, false, normalMatrix);
 
-        var cameraRotValues = cameraRotationHandlers.frameHandler(lastTime || time, time);
+        var mvpMatrix = cameraRotationFrameHandler(duration);
 
-        gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, cameraRotValues.mvpMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvpMatrixUniform, false, mvpMatrix);
 
-        var z = zoomHandlers.frameHandler(lastTime || time, time).disp;
-        gl.uniform1f(shaderProgram.zoomUniform,displacementToZoomFactor(z));
+        var zDisp = zoomFrameHandler(duration);
+        gl.uniform1f(shaderProgram.zoomUniform,displacementToZoomFactor(zDisp));
 
-        var objectRotValues = objectRotationHandlers.frameHandler(lastTime || time, time);
+        var m = objectRotationFrameHandler(duration);
 
-        var m = objectRotValues.rotationMatrix;
+        // Rotate about x-axis
+//        mat4.rotate(m, mouseFrameHandler(duration).default, [m[0],m[4],m[8]]);
 
         gl.uniform3fv(shaderProgram.aRowUniform, [m[0],m[4],m[8]]);
         gl.uniform3fv(shaderProgram.bRowUniform, [m[1],m[5],m[9]]);
         gl.uniform3fv(shaderProgram.cRowUniform, [m[2],m[6],m[10]]);
 
-        var p = panHandlers.frameHandler(lastTime || time, time);
+        var p = panFrameHandler(duration);
         gl.uniform3fv(shaderProgram.panUniform, [p.xDisp, p.yDisp, 0]);
+
+        var mouseValueDict = mouseFrameHandler(duration);
+
+        var p = mouseValueDict.pan
+        gl.uniform3fv(shaderProgram.panUniform, [p.xDisp, p.yDisp, 0]);
+
 
         setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
 
@@ -509,32 +419,7 @@ var WebGL = (function() {
         console.log(e.keyCode);
       });
 
-      [ zoomHandlers, cameraRotationHandlers, panHandlers,
-        objectRotationHandlers].map(function(hs) {
-        $(canvas).keyup(hs.keyUpHandler);
-        $(canvas).keydown(hs.keyDownHandler);
-      });
-
       canvas.intervalFunctionId = setInterval(display_scene_closure, INTERVAL);
-      console.log("setting " + canvas.intervalFunctionId);
-  }
-
-  /* Modifies values parameter */
-  function keyHandle(startTime, e, values, keyCode, keyDirection) {
-    var opposite, key;
-
-    if (keyDirection === KeyState.up) {
-      opposite = KeyState.down;
-      key = "upTime";
-    } else {
-      opposite = KeyState.up;
-      key = "downTime";
-    }
-
-    if (e.keyCode === keyCode && values.state === opposite) {
-       values[key] = (new Date()).getTime() - startTime;
-       values.state = keyDirection;
-    }
   }
 
   function bindMeshToBuffer(gl, verticesObj, vertexPositionAttribute, meshWidth) {
@@ -543,78 +428,6 @@ var WebGL = (function() {
     gl.vertexAttribPointer(vertexPositionAttribute, ITEM_SIZE, gl.FLOAT, false, 0, 0);
   }
 
-  /*
-   *  @makeContinuousHandlers@ returns three handlers that all manipulate a shared
-   *  state.
-   *
-   *  1. A key-down handler.
-   *  2. A key-up handler.
-   *  3. A frame handler. (Frame as in a frame of an animation.)
-   *
-   * The function @f@ (@f(duration, keyStates, value)@)
-   * is a _value updating function_. It takes a
-   * frame duration, the key states of various keys in
-   * that frame, and object (of arbitrary form).
-   *
-   * It should produce an object of that same form.
-   *
-   * (Note: The @duration@ parameter is typically very short --
-   *  a few milliseconds at most.)
-   *
-   * The handlers returned should be used as follows:
-   *
-   * 1. The key-down and key-up handlers should be added to (not overwrite)
-   *    the key-down and key-up handlers for the canvas.
-   * 2. The frame handler, which takes a @last@ and @now@ time
-   *    (the endpoints of the frame) should be used to get the latest
-   *    value. (The internal state of the value is updated in the process.)
-   *
-   * The function is called makeContinuousHandlers because it is meant to be
-   * used on values that change continuously, based on how long particular
-   * keys were depressed. As you can see from the value updating function
-   * we approximate continuity by performing operations on many small
-   * durations.
-   *
-   */
-  function makeContinuousHandlers(keyCodes, initValue, f) {
-
-
-    var keyStates = {}, /* keyStates records the current state of the keys */
-        value     = initValue;
-
-    /* Initialise keyStates */
-    keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
-
-    /*
-     * These closures refer to @keyValues@ and @currentValue@.
-     * The key handlers only do something if they key pressed has a
-     * @keyCode@ equal to @keyCode@ parameter above.
-     */
-    var downHandler  = function(e) {
-      keyCodes.map(function(keyCode) {
-        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.down}
-      });
-    };
-    var upHandler    = function(e) {
-      keyCodes.map(function(keyCode) {
-        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.up}
-      });
-    };
-
-    var frameHandler = function(last,now) {
-      var duration = (now - last > 0 ? now - last : 0);
-      return (value = f(duration, keyStates, value));
-    };
-
-    return { keyUpHandler:   upHandler,
-             keyDownHandler: downHandler,
-             frameHandler:    frameHandler };
-  }
-
-  function opposingKeysDir(keyStates, posKeyCode, negKeyCode) {
-    return (keyStates[posKeyCode] == KeyState.down ? 1.0: 0.0) +
-           (keyStates[negKeyCode] == KeyState.down ? -1.0: 0.0);
-  }
 
   function webGLStart() {
       $(".playspace-canvas").each(function(i) {
@@ -624,6 +437,8 @@ var WebGL = (function() {
   }
 
   /* Return "methods" for this "module". See top of file for explanation. */
-  return({ cleanUpCanvas: cleanUpCanvas, start: webGLStart });
+  return({ cleanUpCanvas: cleanUpCanvas
+         , reset: reset
+         , start: webGLStart });
 
 })();

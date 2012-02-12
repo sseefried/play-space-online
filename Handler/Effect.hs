@@ -84,7 +84,8 @@ getShowEffectR userId name = do
 
 showEffect :: Effect -> Handler RepHtml
 showEffect effect = do
-  eu <- readEffectAndUser effect
+  eu@(effect,user) <- readEffectAndUser effect
+  let uniquePrefix = effectUnique effect user
   defaultLayout $ do
      addWidget $(widgetFile "effects/show")
      startWebGLScript
