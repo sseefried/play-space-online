@@ -1,0 +1,159 @@
+
+/* Requires
+  - jquery
+  - underscore
+ */
+
+var InputHandler = (function() {
+ /*
+  *
+  * There are several things you want to know about mouse movement in a frame
+  *
+  * a) where the mouse was at the start of the frame
+  * b) where the mouse was at the end of the frame
+  * c) whether the modifier keys were depressed
+  * d) whether the mouse button was depressed.
+  *
+  * The frames are short enough that we consider keys or mouse to be depressed if
+  * the state at the end of the frame is depressed.
+  */
+
+
+ /*
+  *  Inputs
+  *  ~~~~~
+  *
+  * 1. 'obj' is the DOM object we are attaching input handling to.
+  *
+  *  'keyCodes' represents are collection of keys that are associated with an
+  * "input received function". Note, that 'keyCodes' can be the empty array.
+  *
+  * 2. The 'initialValue' is an object of arbitrary form, used to maintain state between
+  *  calls to 'frameValue'.
+  *
+  *
+  * (Important: It is important to return the new value otherwise the internal value is not
+  *  updated)
+  *
+  * 3. 'mouseKeyStates' is an object of the form:
+  *
+  * { keyStates: <boolean>, mouseState: <boolean>
+  * , startX: <number>, startY: <number>
+  * , finishX: <number>, finishY: <number> }
+  *
+  * The mouse position is relative to the *center* of 'obj'. This means a point half way between
+  * the left and right and top and bottom.
+  *
+  * - 'keyStates' is an object which contains a KeyState for each
+  * - 'mouseState' contains a MouseState value.
+  * - 'startX', 'startY' are the mouse co-ordinates at the start of the frame.
+  * - 'finishX', 'finishY' are the mouse co-ordinates at the finish of the frame.
+  *
+  * 4. The 'frameValue' is of form:
+  *
+  *   function(duration, mouseKeyStates, value)
+  *
+  * The 'value' parameter is the current state of the object initially defined by
+  * 'initalValue'.
+  *
+  * The 'frameValue' returns an object consisting of an "observable value" and a new "value".
+  * The observable value is not necessarily the same form as the 'value' parameter. It is
+  * the value returned by the "frame handler" described below.
+  * The form of this object is:
+  *   { observable: <observable value>, value: <value> }
+  *
+  * Side effects
+  * ------------
+  * This function attaches key-up, key-down, mouse-up, mouse-down and mouse-move handlers to
+  * 'obj' to keep track the state of keys and mouse moves.
+  *
+  * Return value
+  * ------------
+  * The function returns a frame handler, a function of form:
+  *
+  *   function(duration)
+  *
+  * which returns the observable value
+  *
+  * The keys are the same as those of 'inputDict'.
+  * The "observable value" is the value returned from the 'frameValue' (see above).
+  *
+  */
+  function makeFrameHandler(obj, keyCodes, initialValue, frameValue) {
+     var keyStates       = {}, /* keyStates records the current state of the keys */
+         mouseState      = MouseState.up,
+         // mouseWheelMoved = false,
+         value           = initialValue;
+
+     /* Initialise keyStates */
+    keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
+
+    /* Mouse position */
+    var origin = { x: $(obj).offset().left + $(obj).width()/2
+                 , y: $(obj).offset().top  + $(obj).height()/2 },
+        absoluteMousePos = { x: 0, y: 0 },     /* instantaneous mouse position */
+        lastMousePos = { x: 0, y: 0};  /* _relative_ mouse pos for last frame */
+
+
+    /* Initialise keyStates */
+    keyCodes.map(function(keyCode) { keyStates[keyCode]  = KeyState.up });
+
+    var downHandler = function(e) {
+      keyCodes.map(function(keyCode) {
+        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.down }
+      });
+    };
+
+    var upHandler = function(e) {
+      keyCodes.map(function(keyCode) {
+        if (e.keyCode == keyCode ) { keyStates[keyCode] = KeyState.up }
+      });
+    };
+
+    var mouseMoveHandler = function(e) {
+      absoluteMousePos = { x: e.pageX, y: e.pageY };
+    }
+
+    // var mouseWheelHandler = function(e) {
+    //   console.log(e);
+    //   mouseWheelMoved = true;
+    // }
+
+    function mousePos() {
+      return({ x: absoluteMousePos.x - origin.x, y: absoluteMousePos.y - origin.y});
+    }
+
+    var frameHandler = function(duration) {
+      var duration_ = duration > 0 ? duration : 0,
+          mouseKeyStates = { keyStates:       keyStates
+                           , mouseState:      mouseState
+//                           , mouseWheelMoved: mouseWheelMoved
+                           , startX:          lastMousePos.x
+                           , startY:          lastMousePos.y
+                           , finishX:         mousePos().x
+                           , finishY:         mousePos().y },
+          result = frameValue(duration_, mouseKeyStates, value);
+      lastMousePos = mousePos(); // set last mouse position to the current one
+      mouseWheelMoved = false; // set back to false
+      value = result.value;
+      return result.observable;
+    }
+
+    var obj_ = $(obj), body = $('body');
+    obj_.keyup(upHandler);
+    obj_.keydown(downHandler);
+    obj_.mousemove(mouseMoveHandler);
+    // obj_.mousewheel(mouseWheelHandler);
+
+    body.mousedown(function() { mouseState = MouseState.down});
+    body.mouseup(function ()  { mouseState = MouseState.up  });
+
+
+    return frameHandler;
+  }
+
+  /* Return the "methods" of this "module". */
+  return({ makeFrameHandler: makeFrameHandler });
+
+})();
+

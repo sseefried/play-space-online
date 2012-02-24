@@ -96,8 +96,7 @@ instance Yesod Foundation where
             let julii = [ $(Settings.juliusFile "glMatrix")
                         , $(Settings.juliusFile "enumerations")
                         , $(Settings.juliusFile "shady-ui")
-                        , $(Settings.juliusFile "key-handler")
-                        , $(Settings.juliusFile "mouse-handler")
+                        , $(Settings.juliusFile "input-handler")
                         , $(Settings.juliusFile "frame-handler")
                         , $(Settings.juliusFile "webgl")
                         , $(Settings.juliusFile "canvas-resize")]

@@ -64,28 +64,51 @@ var FrameHandler = (function() {
 
 
 
-  function panValue(duration, keyStates, value) {
-    var a = 4.0, dragCoeff = 2.0;
-    var kcs = panKeyCodes;
-    var xDir = opposingKeysDir(keyStates, kcs[3], kcs[1]),
+  /*
+   * 'value' is of form
+   *    { canvasWidth:  ...
+   *    , canvasHeight: ...
+   *    , xDisp:        ...
+   *    , xVelocity:    ...
+   *    , yDisp:        ...
+   *    , yVelocity:    ... }
+   */
+  function panValue(duration, mouseKeyStates, value) {
+    var a = 4.0, dragCoeff = 2.0,
+        kcs = panKeyCodes,
+        keyStates = mouseKeyStates.keyStates,
+        xDir = opposingKeysDir(keyStates, kcs[3], kcs[1]),
         yDir = opposingKeysDir(keyStates, kcs[0], kcs[2]),
         xValues = accelerate(xDir,a,dragCoeff,duration,
                              { disp: value.xDisp, velocity: value.xVelocity }),
         yValues = accelerate(yDir,a,dragCoeff,duration,
-                             { disp: value.yDisp, velocity: value.yVelocity });
+                             { disp: value.yDisp, velocity: value.yVelocity }),
+        m = mouseKeyStates;
 
-    value.xDisp     = xValues.disp;
-    value.xVelocity = xValues.velocity;
-    value.yDisp     = yValues.disp;
-    value.yVelocity = yValues.velocity;
+    if (m.mouseState == MouseState.down) {
+      xValues.disp = xValues.disp + 2*(m.finishX - m.startX)/value.canvasWidth;
+      yValues.disp = yValues.disp + 2*(m.startY - m.finishY)/value.canvasHeight;
+    }
+
+    return { observable: { xDisp: xValues.disp, yDisp: yValues.disp }
+           , value: { canvasWidth: value.canvasWidth
+                    , canvasHeight: value.canvasHeight
+                    , xDisp: xValues.disp
+                    , xVelocity: xValues.velocity
+                    , yDisp: yValues.disp
+                    , yVelocity: yValues.velocity  } };
+
     return({ xDisp: value.xDisp, yDisp: value.yDisp });
   }
 
-  function objectRotationValue(duration, keyStates, value) {
-    var a = 10.0, dragCoeff = 2.0;
-
-    var kcs = objectRotationKeyCodes;
-    var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
+  /*
+   * 'value' is of form { rotationMatrix:, vertVelocity: ..., horizVelocity: ... }
+   */
+  function objectRotationValue(duration, mouseKeyStates, value) {
+    var a = 10.0, dragCoeff = 2.0,
+        kcs = objectRotationKeyCodes,
+        keyStates = mouseKeyStates.keyStates,
+        vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
         horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
         vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                  { disp: 0.0, velocity: value.vertVelocity }),
@@ -95,16 +118,20 @@ var FrameHandler = (function() {
     rotateAboutAxis(vertValues.disp,  Axis.x, value.rotationMatrix);
     rotateAboutAxis(horizValues.disp, Axis.y, value.rotationMatrix);
 
-    value.vertVelocity  = vertValues.velocity;
-    value.horizVelocity = horizValues.velocity;
-    return value.rotationMatrix;
+    return { observable: value.rotationMatrix
+           , value: { rotationMatrix: value.rotationMatrix
+                    , vertVelocity:  vertValues.velocity
+                    , horizVelocity: horizValues.velocity }};
   }
 
-  function cameraRotationValue(duration, keyStates, value) {
-     var a = 10.0, dragCoeff = 2.0;
-
-     var kcs = cameraRotationKeyCodes;
-     var vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
+  /*
+   * 'value' is of form { mvpMatrix: ..., vertVelocity: ..., horizVelocity: ... }
+   */
+  function cameraRotationValue(duration, mouseKeyStates, value) {
+     var a = 10.0, dragCoeff = 2.0,
+         kcs = cameraRotationKeyCodes,
+         keyStates = mouseKeyStates.keyStates;
+         vertDir  = opposingKeysDir(keyStates, kcs[0], kcs[2]),
          horizDir = opposingKeysDir(keyStates, kcs[1], kcs[3]),
          vertValues =  accelerate(vertDir,a,dragCoeff,duration,
                                   { disp: 0.0, velocity: value.vertVelocity }),
@@ -114,75 +141,54 @@ var FrameHandler = (function() {
      rotateAboutAxis(vertValues.disp,  Axis.x, value.mvpMatrix);
      rotateAboutAxis(horizValues.disp, Axis.y, value.mvpMatrix);
 
-     value.vertVelocity  = vertValues.velocity;
-     value.horizVelocity = horizValues.velocity;
-     return value.mvpMatrix;
+     return { observable: value.mvpMatrix
+            , value: { mvpMatrix: value.mvpMatrix
+                     , vertVelocity: vertValues.velocity
+                     , horizVelocity: horizValues.velocity } };
    }
 
-   function zoomValue(duration,keyStates,value) {
-     var direction = opposingKeysDir(keyStates, 88,90);
-     var newValue = accelerate(direction,10.0,3.0,duration,value);
-     value.disp     = newValue.disp;
-     value.velocity = newValue.velocity;
-     return value.disp;
+   /*
+    * 'value' is of form { disp: ..., velocity:....}
+    */
+   function zoomValue(duration,mouseKeyStates,value) {
+     var keyStates = mouseKeyStates.keyStates,
+         direction = opposingKeysDir(keyStates, 88,90),
+         newValue  = accelerate(direction,10.0,3.0,duration,value);
+
+     return { observable: newValue.disp
+            , value: newValue };
    }
 
-   function mouseRotationValue(duration, mouseKeyStates, value) {
-     var m = mouseKeyStates;
-     var d = 0;
-     if (m.mouseDown) {
-       d = Math.sqrt(Math.pow(m.finishX - m.startX,2) +
-                             Math.pow(m.finishY - m.startY,2));
-     }
-     return (d / 1000.0);
-   }
-
-   function mousePanValue(duration, mouseKeyStates, value) {
-     var m = mouseKeyStates;
-     if (m.mouseDown) {
-       value.xDisp = value.xDisp + 2*(m.finishX - m.startX)/value.canvasWidth;
-       value.yDisp = value.yDisp + 2*(m.startY - m.finishY)/value.canvasHeight;
-     }
-     return value;
-   }
-
-   /* initalValue of form { xDisp: ..., xVelocity: ..., yDisp: ..., yVelocity: ... } */
+   /* initalValue of form { xDisp: ..., xVelocity: ...,
+                            yDisp: ..., yVelocity: ...,
+                            canvasWidth:  ...,
+                            canvasHeight: ... } */
    function pan(canvas, initialValue) {
-     return KeyHandler.makeFrameHandler(canvas,panKeyCodes,initialValue,panValue);
+     return InputHandler.makeFrameHandler(canvas,panKeyCodes,initialValue,panValue);
    }
 
    function objectRotation(canvas, initialRotationMatrix) {
-      return KeyHandler.makeFrameHandler(canvas,objectRotationKeyCodes,
+      return InputHandler.makeFrameHandler(canvas,objectRotationKeyCodes,
         { vertVelocity: 0.0, horizVelocity: 0.0, rotationMatrix: initialRotationMatrix },
         objectRotationValue);
    }
 
-
    function cameraRotation(canvas, initialMVPMatrix) {
-     return KeyHandler.makeFrameHandler(canvas,cameraRotationKeyCodes,
+     return InputHandler.makeFrameHandler(canvas,cameraRotationKeyCodes,
        { vertVelocity: 0.0, horizVelocity: 0.0, mvpMatrix: initialMVPMatrix },
        cameraRotationValue);
    }
 
    function zoom(canvas) {
-     return KeyHandler.makeFrameHandler(canvas,[90 /*Z*/,88 /*X*/],
-                                             { disp: 0.0, velocity: 0.0}, zoomValue);
+     return InputHandler.makeFrameHandler(canvas,[90 /*Z*/,88 /*X*/],
+                                          { disp: 0.0, velocity: 0.0}, zoomValue);
    }
-
-   /* initalPanValue of form { pan: { xDisp: ..., xVelocity: ..., yDisp: ..., yVelocity: ... } } */
-   function mouse(canvas, initialValueDict) {
-     return MouseHandler.makeFrameHandler(canvas,
-       { pan: { keyCodes: []
-              , initialValue: initialValueDict.pan
-              , frameValue: mousePanValue } });
-   }
-
 
   /* Return the "methods" of this "module" */
   return( { pan:            pan
           , objectRotation: objectRotation
           , cameraRotation: cameraRotation
-          , zoom:           zoom
-          , mouse:          mouse });
+          , zoom:           zoom });
+
 
 })();

@@ -364,13 +364,10 @@ var WebGL = (function() {
                              , canvasWidth: $(canvas).width()
                              , canvasHeight: $(canvas).height() };
 
-      var panFrameHandler =
-            FrameHandler.pan(canvas, initialPanValues);
+      var panFrameHandler =  FrameHandler.pan(canvas, initialPanValues);
       var objectRotationFrameHandler = FrameHandler.objectRotation(canvas, initialRotationMatrix);
       var cameraRotationFrameHandler = FrameHandler.cameraRotation(canvas, initialMVPMatrix);
       var zoomFrameHandler = FrameHandler.zoom(canvas);
-
-      var mouseFrameHandler = FrameHandler.mouse(canvas, { pan: initialPanValues } );
 
       var display_scene_closure = function () {
 
@@ -391,21 +388,12 @@ var WebGL = (function() {
 
         var m = objectRotationFrameHandler(duration);
 
-        // Rotate about x-axis
-//        mat4.rotate(m, mouseFrameHandler(duration).default, [m[0],m[4],m[8]]);
-
         gl.uniform3fv(shaderProgram.aRowUniform, [m[0],m[4],m[8]]);
         gl.uniform3fv(shaderProgram.bRowUniform, [m[1],m[5],m[9]]);
         gl.uniform3fv(shaderProgram.cRowUniform, [m[2],m[6],m[10]]);
 
         var p = panFrameHandler(duration);
         gl.uniform3fv(shaderProgram.panUniform, [p.xDisp, p.yDisp, 0]);
-
-        var mouseValueDict = mouseFrameHandler(duration);
-
-        var p = mouseValueDict.pan
-        gl.uniform3fv(shaderProgram.panUniform, [p.xDisp, p.yDisp, 0]);
-
 
         setUniformsFromShadyUIs(canvas, gl, shaderProgram, time);
 
